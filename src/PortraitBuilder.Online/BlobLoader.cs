@@ -23,6 +23,10 @@ namespace PortraitBuilder.Online
             return storage.CreateCloudBlobClient();
         });
 
+        internal static readonly Lazy<CloudBlobContainer> _packs = new Lazy<CloudBlobContainer>(
+            () => _storageClient.Value.GetContainerReference("packs")
+        );
+
         internal static readonly Lazy<Task<PortraitData>> _portraitPack = new Lazy<Task<PortraitData>>(async () =>
         {
             var client = _storageClient.Value;
@@ -67,7 +71,17 @@ namespace PortraitBuilder.Online
                 );
         });
 
-        internal static readonly ConcurrentDictionary<string, Task<SKBitmap>> _blobTileCache = new ConcurrentDictionary<string, Task<SKBitmap>>();
+        internal static Task<SKBitmap> GetBitmapAsync(string path) => _blobTileCache.GetOrAdd(path, DownloadBitmapAsync);
+        private static async Task<SKBitmap> DownloadBitmapAsync(string path)
+        {
+            var blob = _packs.Value.GetBlockBlobReference(path);
+            using var stream = await blob.OpenReadAsync();
+
+            var bmp = SKBitmap.Decode(stream);
+            bmp.SetImmutable();
+            return bmp;
+        }
+        private static readonly ConcurrentDictionary<string, Task<SKBitmap>> _blobTileCache = new ConcurrentDictionary<string, Task<SKBitmap>>();
 
     }
 }
