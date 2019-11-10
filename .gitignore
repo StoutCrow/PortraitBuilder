@@ -167,3 +167,4 @@ pip-log.txt
 
 # ignore launch settings
 launchSettings.json
+/src/PortraitBuilder.Online/Packs

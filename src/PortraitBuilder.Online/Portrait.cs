@@ -10,18 +10,19 @@ using SkiaSharp;
 using System.Linq;
 using System;
 using System.Collections.Generic;
-using System.Collections.Concurrent;
-using System.Buffers;
-using static PortraitBuilder.Online.BlobLoader;
 
 namespace PortraitBuilder.Online
 {
     public static class PortraitFunction
     {
+        private static BlobLoader _loader;
+
         [FunctionName("character")]
         public static async Task<IActionResult> BuildCharacter(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = null)]PortraitBuilder.Online.Models.Character characterModel)
+            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = null)]PortraitBuilder.Online.Models.Character characterModel, ExecutionContext context)
         {
+            _loader ??= new BlobLoader(context);
+
             var character = new Character();
             character.Import(characterModel.DNA, characterModel.Properties);
             if (Enum.TryParse(characterModel.Government, ignoreCase: true, out GovernmentType government))
@@ -33,13 +34,13 @@ namespace PortraitBuilder.Online
                 character.Rank = rank;
             }
 
-            var portrait = await _portraitPack.Value;
+            var portrait = await _loader._portraitPack.Value;
             if (!portrait.PortraitTypes.Any())
             {
                 return new StatusCodeResult(500);
             }
 
-            var cultureLookup = await _cultureLookup.Value;
+            var cultureLookup = await _loader._cultureLookup.Value;
             if (!cultureLookup.Any())
             {
                 return new StatusCodeResult(500);
@@ -63,7 +64,7 @@ namespace PortraitBuilder.Online
                 character.IsChild = age < 16;
             }
 
-            var religiousLookup = await _religiousClothingLookup.Value;
+            var religiousLookup = await _loader._religiousClothingLookup.Value;
             if (characterModel.Religion != null && religiousLookup.TryGetValue(characterModel.Religion, out (int, int) clothingInfo))
             {
                 var religiousClothingHead = clothingInfo.Item1;
@@ -123,8 +124,10 @@ namespace PortraitBuilder.Online
 
         [FunctionName("portrait")]
         public static async Task<IActionResult> DrawPortrait(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = null)] HttpRequest req)
+            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = null)] HttpRequest req, ExecutionContext context)
         {
+            _loader ??= new BlobLoader(context);
+
             string dna = req.Query["dna"];
             string properties = req.Query["properties"];
             if (string.IsNullOrEmpty(dna) || string.IsNullOrEmpty(properties))
@@ -151,7 +154,7 @@ namespace PortraitBuilder.Online
                 character.Rank = rank;
             }
 
-            var portrait = await _portraitPack.Value;
+            var portrait = await _loader._portraitPack.Value;
             if (!portrait.PortraitTypes.Any())
             {
                 return new StatusCodeResult(500);
@@ -181,7 +184,7 @@ namespace PortraitBuilder.Online
 
         private static async Task<SKBitmap> DrawPortraitInternal(Character character)
         {
-            var portrait = await _portraitPack.Value;
+            var portrait = await _loader._portraitPack.Value;
             if (!portrait.PortraitTypes.Any())
             {
                 throw new InvalidOperationException("no PortraitTypes found in loaded portrait pack");
@@ -190,29 +193,24 @@ namespace PortraitBuilder.Online
             var buildSteps = character.IsChild
                 ? PortraitBuilder.Engine.PortraitBuilder.BuildChild(character, portrait.Sprites)
                 : PortraitBuilder.Engine.PortraitBuilder.BuildCharacter(character, portrait.Sprites);
-            buildSteps = buildSteps.Where(step => step != null);
+            var steps = buildSteps.Where(step => step != null).ToArray();
 
-            static string GetBlobPath(SpriteDef def)
-                => def.TextureFilePath.StartsWith("packs/") ? def.TextureFilePath.Substring("packs/".Length) : def.TextureFilePath;
-
-            var bitmapTasks = buildSteps
-                .Select(step => string.Format("{0}/{1}.png", GetBlobPath(step.Def), step.TileIndex))
-                .Select(GetBitmapAsync);
-            await Task.WhenAll(bitmapTasks);
-
-            var steps = buildSteps.Zip(bitmapTasks, (a, b) =>
+            Parallel.ForEach(steps, step =>
             {
-                a.Tile = b.Result;
-                return a;
+                var path = string.Format("{0}/{1}.png", step.Def.TextureFilePath /*GetBlobPath(step.Def)*/, step.TileIndex);
+                step.Tile = _loader.GetBitmap(path);
             });
+
             return PortraitRenderer.DrawPortrait(steps);
         }
 
         [FunctionName("portraittypes")]
         public static async Task<IActionResult> GetPortraitTypes(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = null)] HttpRequest req)
+            [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = null)] ExecutionContext context)
         {
-            var portrait = await _portraitPack.Value;
+            _loader ??= new BlobLoader(context);
+
+            var portrait = await _loader._portraitPack.Value;
             if (!portrait.PortraitTypes.Any())
             {
                 return new StatusCodeResult(500);

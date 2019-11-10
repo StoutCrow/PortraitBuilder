@@ -7,6 +7,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 
 namespace PortraitBuilder.ContentPacks
 {
@@ -38,7 +39,7 @@ namespace PortraitBuilder.ContentPacks
                 var content = ActiveContent[i];
                 dir = new DirectoryInfo(Path.Combine(content.AbsolutePath, def.Name));
 
-                if(dir.Exists && dir.EnumerateFiles().Any()) break;
+                if (dir.Exists && dir.EnumerateFiles().Any()) break;
             }
 
             if (dir == null || !dir.Exists)
@@ -57,12 +58,13 @@ namespace PortraitBuilder.ContentPacks
             {
                 if (disposing)
                 {
-                    var oldDict = _sprites;
-                    _sprites = null;
-
-                    foreach (var sprite in oldDict.Values)
+                    var oldDict = Interlocked.Exchange(ref _sprites, null);
+                    if (oldDict != null)
                     {
-                        sprite.Dispose();
+                        foreach (var sprite in oldDict.Values)
+                        {
+                            sprite.Dispose();
+                        }
                     }
                 }
 

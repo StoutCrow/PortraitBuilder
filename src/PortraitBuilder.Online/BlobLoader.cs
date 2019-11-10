@@ -1,65 +1,51 @@
-﻿using Microsoft.WindowsAzure.Storage;
-using Microsoft.WindowsAzure.Storage.Blob;
+﻿using Microsoft.Azure.WebJobs;
 using PortraitBuilder.Model.Portrait;
 using SkiaSharp;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace PortraitBuilder.Online
 {
-    internal static class BlobLoader
+    internal class BlobLoader
     {
-        internal static readonly Lazy<CloudBlobClient> _storageClient = new Lazy<CloudBlobClient>(() =>
+        private readonly ExecutionContext context;
+        internal BlobLoader(ExecutionContext context)
         {
-            string storageConnectionString = Environment.GetEnvironmentVariable("PortraitPackStorage");
-            Debug.Assert(!string.IsNullOrEmpty(storageConnectionString));
+            this.context = context;
 
-            var storage = CloudStorageAccount.Parse(storageConnectionString);
-            return storage.CreateCloudBlobClient();
-        });
+            _portraitPack = new Lazy<Task<PortraitData>>(CreatePortraitPack);
+            _cultureLookup = new Lazy<Task<Dictionary<string, IEnumerable<string>>>>(CreateCultureLookup);
+            _religiousClothingLookup = new Lazy<Task<Dictionary<string, ValueTuple<int, int>>>>(CreateReligiousClothingLookup);
+        }
 
-        internal static readonly Lazy<CloudBlobContainer> _packs = new Lazy<CloudBlobContainer>(
-            () => _storageClient.Value.GetContainerReference("packs")
-        );
+        private string BasePath => context.FunctionAppDirectory;
 
-        internal static readonly Lazy<Task<PortraitData>> _portraitPack = new Lazy<Task<PortraitData>>(async () =>
+        internal readonly Lazy<Task<PortraitData>> _portraitPack;
+        private Task<PortraitData> CreatePortraitPack()
         {
-            var client = _storageClient.Value;
-
-            var container = client.GetContainerReference("packs");
-            var blob = container.GetBlockBlobReference("portraits.json");
-            var json = await blob.DownloadTextAsync();
-
+            var fs = File.OpenRead(Path.Combine(BasePath, "Packs", "portraits.json"));
             var options = ContentPacks.JsonHelper.GetDefaultOptions();
-            return JsonSerializer.Deserialize<PortraitData>(json, options);
-        });
+            return JsonSerializer.DeserializeAsync<PortraitData>(fs, options).AsTask();
+        }
 
-        internal static readonly Lazy<Task<IReadOnlyDictionary<string, IEnumerable<string>>>> _cultureLookup = new Lazy<Task<IReadOnlyDictionary<string, IEnumerable<string>>>>(async () =>
+        internal readonly Lazy<Task<Dictionary<string, IEnumerable<string>>>> _cultureLookup;
+        private Task<Dictionary<string, IEnumerable<string>>> CreateCultureLookup()
         {
-            var client = _storageClient.Value;
-
-            var container = client.GetContainerReference("packs");
-            var blob = container.GetBlockBlobReference("culture_lookup.json");
-            var json = await blob.DownloadTextAsync();
-
+            var fs = File.OpenRead(Path.Combine(BasePath, "Packs", "culture_lookup.json"));
             var options = ContentPacks.JsonHelper.GetDefaultOptions();
-            return JsonSerializer.Deserialize<Dictionary<string, IEnumerable<string>>>(json, options);
-        });
+            return JsonSerializer.DeserializeAsync<Dictionary<string, IEnumerable<string>>>(fs, options).AsTask();
+        }
 
-        internal static readonly Lazy<Task<IReadOnlyDictionary<string, ValueTuple<int, int>>>> _religiousClothingLookup = new Lazy<Task<IReadOnlyDictionary<string, ValueTuple<int, int>>>>(async () =>
+        internal readonly Lazy<Task<Dictionary<string, ValueTuple<int, int>>>> _religiousClothingLookup;
+        private async Task<Dictionary<string, ValueTuple<int, int>>> CreateReligiousClothingLookup()
         {
-            var client = _storageClient.Value;
-
-            var container = client.GetContainerReference("packs");
-            var blob = container.GetBlockBlobReference("religious_clothing_lookup.json");
-            var json = await blob.DownloadTextAsync();
-
-            using var jd = JsonDocument.Parse(json);
+            var fs = File.OpenRead(Path.Combine(BasePath, "Packs", "religious_clothing_lookup.json"));
+            using var jd = await JsonDocument.ParseAsync(fs);
             return jd.RootElement
                 .EnumerateObject()
                 .ToDictionary(
@@ -69,19 +55,15 @@ namespace PortraitBuilder.Online
                         jp.Value.GetProperty("religious_clothing_priest").GetInt32()
                     )
                 );
-        });
+        }
 
-        internal static Task<SKBitmap> GetBitmapAsync(string path) => _blobTileCache.GetOrAdd(path, DownloadBitmapAsync);
-        private static async Task<SKBitmap> DownloadBitmapAsync(string path)
+        internal SKBitmap GetBitmap(string path) => _blobTileCache.GetOrAdd(path, DecodeBitmap);
+        private SKBitmap DecodeBitmap(string path)
         {
-            var blob = _packs.Value.GetBlockBlobReference(path);
-            using var stream = await blob.OpenReadAsync();
-
-            var bmp = SKBitmap.Decode(stream);
+            var bmp = SKBitmap.Decode(Path.Combine(BasePath, path));
             bmp.SetImmutable();
             return bmp;
         }
-        private static readonly ConcurrentDictionary<string, Task<SKBitmap>> _blobTileCache = new ConcurrentDictionary<string, Task<SKBitmap>>();
-
+        private static readonly ConcurrentDictionary<string, SKBitmap> _blobTileCache = new ConcurrentDictionary<string, SKBitmap>();
     }
 }
