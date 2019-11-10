@@ -190,58 +190,22 @@ namespace PortraitBuilder.Online
             var buildSteps = character.IsChild
                 ? PortraitBuilder.Engine.PortraitBuilder.BuildChild(character, portrait.Sprites)
                 : PortraitBuilder.Engine.PortraitBuilder.BuildCharacter(character, portrait.Sprites);
-
-            var steps = buildSteps
-                .Where(s => s != null)
-                .ToArray();
-
-            var container = _storageClient.Value.GetContainerReference("packs");
-
-            var defs = new ConcurrentDictionary<SpriteDef, HashSet<int>>();
-            foreach (var step in steps)
-            {
-                var set = defs.GetOrAdd(step.Def, new HashSet<int>());
-                set.Add(step.TileIndex);
-            }
+            buildSteps = buildSteps.Where(step => step != null);
 
             static string GetBlobPath(SpriteDef def)
                 => def.TextureFilePath.StartsWith("packs/") ? def.TextureFilePath.Substring("packs/".Length) : def.TextureFilePath;
 
-            async Task<SKBitmap> DownloadBitmapAsync(string path)
+            var bitmapTasks = buildSteps
+                .Select(step => string.Format("{0}/{1}.png", GetBlobPath(step.Def), step.TileIndex))
+                .Select(GetBitmapAsync);
+            await Task.WhenAll(bitmapTasks);
+
+            var steps = buildSteps.Zip(bitmapTasks, (a, b) =>
             {
-                var blob = container.GetBlockBlobReference(path);
-                using var stream = await blob.OpenReadAsync();
-
-                var bmp = SKBitmap.Decode(stream);
-                bmp.SetImmutable();
-                return bmp;
-            }
-
-            var bitmapTasks = defs
-                .ToDictionary(kvp => kvp.Key, kvp =>
-                {
-                    var tasks = ArrayPool<Task<SKBitmap>>.Shared.Rent(kvp.Key.FrameCount);
-                    foreach (var index in kvp.Value)
-                    {
-                        tasks[index] = _blobTileCache.GetOrAdd($"{GetBlobPath(kvp.Key)}/{index}.png", key => DownloadBitmapAsync(key));
-                    }
-                    return tasks;
-                });
-
-            foreach (var step in steps)
-            {
-                var bitmapTask = bitmapTasks[step.Def][step.TileIndex];
-                if (bitmapTask == null) continue;
-
-                step.Tile = await bitmapTask;
-            }
-
-            var portraitBitmap = PortraitRenderer.DrawPortrait(steps);
-            foreach (var array in bitmapTasks.Values)
-            {
-                ArrayPool<Task<SKBitmap>>.Shared.Return(array);
-            }
-            return portraitBitmap;
+                a.Tile = b.Result;
+                return a;
+            });
+            return PortraitRenderer.DrawPortrait(steps);
         }
 
         [FunctionName("portraittypes")]
