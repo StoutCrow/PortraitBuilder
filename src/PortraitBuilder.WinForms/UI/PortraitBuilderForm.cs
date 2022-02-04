@@ -339,9 +339,9 @@ namespace PortraitBuilder.UI
             var (@base, clothing) = GetSelectedGraphicalCultures();
             string host;
 #if DEBUG
-            host = "http://localhost:7071";
+            host = "http://localhost:7071/api";
 #else
-            host = "https://portraits.ga";
+            host = "https://portrait.ga";
 #endif
             var baseUrl = $"{host}/portrait?dna={character.DNA}&properties={character.Properties}&base={@base}";
             var clothingUrl = !string.IsNullOrEmpty(clothing) ? $"&clothing={clothing}" : string.Empty;
