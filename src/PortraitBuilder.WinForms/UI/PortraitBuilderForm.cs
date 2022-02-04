@@ -1,18 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.IO;
-using System.Text;
-using System.Windows.Forms;
+﻿using Microsoft.Extensions.Logging;
 using PortraitBuilder.Engine;
+using PortraitBuilder.Model;
 using PortraitBuilder.Model.Content;
 using PortraitBuilder.Model.Portrait;
-using PortraitBuilder.Model;
-using System.Linq;
 using SkiaSharp;
-using System.Runtime.InteropServices;
-using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
+using System.IO;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Windows.Forms;
 
 namespace PortraitBuilder.UI
 {
@@ -70,31 +70,34 @@ namespace PortraitBuilder.UI
 
             foreach (var dna in DefaultCharacteristics.DNA)
             {
-                registerDisplayCharacteristic(panelDNA, dna);
+                RegisterDisplayCharacteristic(panelDNA, dna);
             }
             foreach (var property in DefaultCharacteristics.PROPERTIES)
             {
-                registerDisplayCharacteristic(panelProperties, property);
+                RegisterDisplayCharacteristic(panelProperties, property);
             }
 
             InitializeForm();
-            load(false);
+            LoadGame(false);
             started = true;
         }
 
         private void InitializeForm()
         {
-            logger.LogInformation("Portrait Builder Version " + Application.ProductVersion);
+            logger.LogInformation("Portrait Builder Version {version}", Application.ProductVersion);
             // Add the version to title
-            this.Text += " " + Application.ProductVersion;
+            this.Text += $" {Application.ProductVersion}";
 
             InitializeTooltip();
 
-            _user = new User();
-            _user.GameDir = readGameDir();
-            _user.ModDir = readModDir(_user.GameDir);
-            _user.DlcDir = Path.Combine(Environment.CurrentDirectory, "dlc/");
-            logger.LogInformation("Configuration: " + _user);
+            var gameDir = ReadGameDir();
+            _user = new User
+            {
+                GameDir = gameDir,
+                ModDir = ReadModDir(gameDir),
+                DlcDir = Path.Combine(Environment.CurrentDirectory, "dlc/")
+            };
+            logger.LogInformation("Configuration: {user}", _user);
             logger.LogInformation("----------------------------");
 
             loader = new GameLoader();
@@ -123,51 +126,51 @@ namespace PortraitBuilder.UI
             toolTip.SetToolTip(this.cbGovernment, "Select government to use for rendering. Theocracy and Merchant Republic use special sprites for headgear and clothing.");
         }
 
-        private void load(bool clean)
+        private void LoadGame(bool clean)
         {
             logger.LogInformation("----------------------------");
             logger.LogInformation("(Re-)loading data");
 
             loader.LoadVanilla(_user.GameDir);
-            loadDLCs(_user.GameDir, _user.DlcDir, clean);
-            loadMods(_user.ModDir);
+            LoadDLCs(_user.GameDir, _user.DlcDir, clean);
+            LoadMods(_user.ModDir);
 
-            loadPortraitTypes();
-            fillDisplayCharacteristicComboBoxes();
-            randomizeDisplayCharacteristics(true);
+            LoadPortraitTypes();
+            FillDisplayCharacteristicComboBoxes();
+            RandomizeDisplayCharacteristics(true);
 
-            drawPortrait();
+            DrawPortrait();
         }
 
-        private void loadMods(string modDir)
+        private void LoadMods(string modDir)
         {
             List<Mod> mods = loader.LoadMods(modDir);
             panelMods.Controls.Clear();
 
             foreach (var mod in mods)
             {
-                registerContent(panelMods, mod);
+                RegisterContent(panelMods, mod);
             }
         }
 
-        private void loadDLCs(string gameDir, string dlcDir, bool clean)
+        private void LoadDLCs(string gameDir, string dlcDir, bool clean)
         {
             var dlcs = loader.LoadDLCs(gameDir, dlcDir, clean);
             panelDLCs.Controls.Clear();
 
             foreach (var dlc in dlcs.Where(d => d.HasPortraitData))
             {
-                registerContent(panelDLCs, dlc);
+                RegisterContent(panelDLCs, dlc);
             }
         }
 
-        private void registerContent(Control container, Content content)
+        private void RegisterContent(Control container, Content content)
         {
             CheckBox checkbox = new();
             checkbox.Text = content.Name;
             checkbox.AutoEllipsis = true;
             checkbox.Width = 190; // Force overflow
-            checkbox.CheckedChanged += this.onCheckContent;
+            checkbox.CheckedChanged += this.OnCheckContent;
             checkbox.Padding = new Padding(0);
             checkbox.Margin = new Padding(0);
 
@@ -179,7 +182,7 @@ namespace PortraitBuilder.UI
                 if (content.Enabled)
                 {
                     toolTip.SetToolTip(checkbox, "Toggle activation and file watching of this mod");
-                    content.Watcher = createModFilesWatcher(content);
+                    content.Watcher = CreateModFilesWatcher(content);
                 }
                 else
                 {
@@ -195,7 +198,7 @@ namespace PortraitBuilder.UI
             }
         }
 
-        private void registerDisplayCharacteristic(Control container, Characteristic characteristic)
+        private void RegisterDisplayCharacteristic(Control container, Characteristic characteristic)
         {
             ComboBox combobox = new()
             {
@@ -203,7 +206,7 @@ namespace PortraitBuilder.UI
                 Padding = new Padding(0),
                 Margin = new Padding(0)
             };
-            combobox.SelectedValueChanged += this.onChangeDisplayCharacteristic;
+            combobox.SelectedValueChanged += this.OnChangeDisplayCharacteristic;
 
             Label label = new()
             {
@@ -238,7 +241,7 @@ namespace PortraitBuilder.UI
             }
         }
 
-        private void unregisterCustomProperties()
+        private void UnregisterCustomProperties()
         {
             for (int i = 0; i <= customPropertiesComboBoxes.Count * 3 - 1; i++)
             {
@@ -248,21 +251,19 @@ namespace PortraitBuilder.UI
             customPropertiesComboBoxes.Clear();
         }
 
-        private string readGameDir()
+        private static string ReadGameDir()
         {
-            Stream stream = new FileStream("gamedir.txt", FileMode.Open);
-            StreamReader reader = new(stream);
-            String gameDir = reader.ReadToEnd();
-            logger.LogInformation("Read gamedir: " + gameDir);
+            var gameDir = File.ReadAllText("gamedir.txt");
+            logger.LogInformation("Read gamedir: {gameDir}", gameDir);
             return gameDir;
         }
 
         /// <summary>
         /// Read userdir.txt in Steam directory for the path to mod dir, or default to pre-defined location
         /// </summary>
-        private string readModDir(string gameDir)
+        private static string ReadModDir(string gameDir)
         {
-            string userDir = getDefaultUserDir();
+            string userDir = GetDefaultUserDir();
             string userdirFilePath = Path.Combine(gameDir, "userdir.txt");
             if (File.Exists(userdirFilePath))
             {
@@ -270,12 +271,12 @@ namespace PortraitBuilder.UI
                 Stream stream = new FileStream(userdirFilePath, FileMode.Open);
                 StreamReader reader = new(stream, Encoding.Default);
                 userDir = reader.ReadLine() + Path.DirectorySeparatorChar;
-                logger.LogInformation("Found userdir.txt with path: " + userDir);
+                logger.LogInformation("Found userdir.txt with path: {userDir}", userDir);
             }
             return Path.Combine(userDir, "mod");
         }
 
-        private string getDefaultUserDir()
+        private static string GetDefaultUserDir()
         {
             var myDocuments = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
 
@@ -289,7 +290,7 @@ namespace PortraitBuilder.UI
                 return Path.Combine(myDocuments, ".paradoxinteractive", "Crusader Kings II");
             else
             {
-                logger.LogError($"Unknown operating system, cannot lookup user dir. OS: {RuntimeInformation.OSDescription}");
+                logger.LogError("Unknown operating system, cannot lookup user dir. OS: {os}", RuntimeInformation.OSDescription);
                 return null;
             }
         }
@@ -297,7 +298,7 @@ namespace PortraitBuilder.UI
         /// <summary>
         /// Entry point for re-drawing based on updated portrait.
         /// </summary>
-        private void drawPortrait()
+        private void DrawPortrait()
         {
             pbPortrait.Image?.Dispose();
 
@@ -328,7 +329,7 @@ namespace PortraitBuilder.UI
             }
 
             var fullUrl = GetOnlinePortraitUrl();
-            logger.LogInformation("Rendering remote portrait: " + fullUrl);
+            logger.LogInformation("Rendering remote portrait: {fullUrl}", fullUrl);
             lnkLblRemotePortrait.Text = fullUrl;
             pbPortraitOnline.ImageLocation = fullUrl;
         }
@@ -351,7 +352,7 @@ namespace PortraitBuilder.UI
 
         private void OnRemotePortraitLinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            if (!(sender is LinkLabel lnkLbl))
+            if (sender is not LinkLabel lnkLbl)
                 return;
 
             string url;
@@ -367,7 +368,7 @@ namespace PortraitBuilder.UI
             lnkLbl.LinkVisited = true;
         }
 
-        private string getDisplayCharacteristicsString(Dictionary<Characteristic, ComboBox> characteristics)
+        private static string GetDisplayCharacteristicsString(Dictionary<Characteristic, ComboBox> characteristics)
         {
             StringBuilder sb = new();
             foreach (ComboBox cb in characteristics.Values)
@@ -383,7 +384,7 @@ namespace PortraitBuilder.UI
         }
 
         // Needs to be called each time portrait object is modified
-        private void outputDNA()
+        private void OutputDNA()
         {
             logger.LogDebug(" --Outputting DNA and Property strings.");
             StringBuilder dnaPropOutput = new();
@@ -398,59 +399,51 @@ namespace PortraitBuilder.UI
             tbDNA.Text = dnaPropOutput.ToString();
         }
 
-        private char GetLetter(ComboBox cb) => Character.GetLetter(cb.SelectedIndex);
+        private static char GetLetter(ComboBox cb) => Character.GetLetter(cb.SelectedIndex);
 
         /// <summary>
         /// Some very specific characristics are not randomized: scars, red dots, boils, prisoner, blinded.
         /// </summary>
         /// <param name="doRank"></param>
-        private void randomizeDisplayCharacteristics(bool doRank)
+        private void RandomizeDisplayCharacteristics(bool doRank)
         {
             logger.LogDebug("Randomizing UI");
             if (doRank)
             {
-                randomizeComboBox(cbGovernment);
-                randomizeComboBox(cbRank);
+                RandomizeComboBox(cbGovernment);
+                RandomizeComboBox(cbRank);
             }
 
-            randomizeDisplayCharacteristics(dnaComboBoxes);
-            randomizeDisplayCharacteristics(propertiesComboBoxes);
-            randomizeDisplayCharacteristics(customPropertiesComboBoxes);
+            RandomizeDisplayCharacteristics(dnaComboBoxes);
+            RandomizeDisplayCharacteristics(propertiesComboBoxes);
+            RandomizeDisplayCharacteristics(customPropertiesComboBoxes);
 
-            updatePortrait(getDisplayCharacteristicsString(dnaComboBoxes), getDisplayCharacteristicsString(propertiesComboBoxes), getDisplayCharacteristicsString(customPropertiesComboBoxes));
+            UpdatePortrait(GetDisplayCharacteristicsString(dnaComboBoxes), GetDisplayCharacteristicsString(propertiesComboBoxes), GetDisplayCharacteristicsString(customPropertiesComboBoxes));
         }
 
-        private void randomizeDisplayCharacteristics(Dictionary<Characteristic, ComboBox> cbs)
+        private static void RandomizeDisplayCharacteristics(Dictionary<Characteristic, ComboBox> cbs)
         {
             foreach (var pair in cbs.Where(kvp => kvp.Key.Randomizable))
             {
-                randomizeComboBox(pair.Value);
+                RandomizeComboBox(pair.Value);
             }
         }
 
-        private void randomizeComboBox(ComboBox cb)
+        private static void RandomizeComboBox(ComboBox cb)
         {
             if (cb.Items.Count > 0)
             {
-                cb.SelectedIndex = rand.Next(cb.Items.Count);
+                cb.SelectedIndex = Random.Shared.Next(cb.Items.Count);
             }
         }
 
-        private void resetComboBox(ComboBox cb)
-        {
-            if (cb.Items.Count > 0)
-            {
-                cb.SelectedIndex = 0;
-            }
-        }
-
-        private void fillComboBox(ComboBox cb, int count)
+        private static void FillComboBox(ComboBox cb, int count)
         {
             for (int i = 0; i < count; i++)
                 cb.Items.Add(i);
         }
 
-        private void fillComboBox(ComboBox cb, Characteristic characteristic)
+        private void FillComboBox(ComboBox cb, Characteristic characteristic)
         {
             cb.Items.Clear();
             PortraitType portraitType = character.PortraitType;
@@ -460,9 +453,9 @@ namespace PortraitBuilder.UI
             int frameCount = loader.ActivePortraitData.GetFrameCount(portraitType, characteristic);
             if (frameCount > 0)
             {
-                logger.LogDebug("Item count for {0} {1} : {2}", portraitType, characteristic, frameCount);
+                logger.LogDebug("Item count for {portraitType} {characteristic} : {frameCount}", portraitType, characteristic, frameCount);
                 cb.Enabled = true;
-                fillComboBox(cb, frameCount);
+                FillComboBox(cb, frameCount);
                 if (frameCount == 1)
                 {
                     cb.Enabled = false; // Disable if only 1 frame, as there's no selection to do, for instance head (p2)
@@ -470,7 +463,7 @@ namespace PortraitBuilder.UI
             }
             else
             {
-                logger.LogWarning("Could not find frame count for {0} and {1}, disabling dropdown.", portraitType, characteristic);
+                logger.LogWarning("Could not find frame count for {portraitType} and {characteristic}, disabling dropdown.", portraitType, characteristic);
                 cb.Enabled = false;
             }
         }
@@ -478,7 +471,7 @@ namespace PortraitBuilder.UI
         private (string @base, string clothing) GetSelectedGraphicalCultures()
             => (cbPortraitTypes.SelectedItem?.ToString(), cbCulturePortraitTypes.SelectedItem?.ToString());
 
-        private PortraitType getSelectedPortraitType()
+        private PortraitType GetSelectedPortraitType()
         {
             PortraitType selectedPortraitType = null;
             object selectedItem = cbPortraitTypes.SelectedItem;
@@ -497,22 +490,22 @@ namespace PortraitBuilder.UI
             return selectedPortraitType;
         }
 
-        private void fillDisplayCharacteristicComboBoxes()
+        private void FillDisplayCharacteristicComboBoxes()
         {
-            fillDisplayCharacteristicComboBoxes(dnaComboBoxes);
-            fillDisplayCharacteristicComboBoxes(propertiesComboBoxes);
-            fillDisplayCharacteristicComboBoxes(customPropertiesComboBoxes);
+            FillDisplayCharacteristicComboBoxes(dnaComboBoxes);
+            FillDisplayCharacteristicComboBoxes(propertiesComboBoxes);
+            FillDisplayCharacteristicComboBoxes(customPropertiesComboBoxes);
         }
 
-        private void fillDisplayCharacteristicComboBoxes(Dictionary<Characteristic, ComboBox> cbs)
+        private void FillDisplayCharacteristicComboBoxes(Dictionary<Characteristic, ComboBox> cbs)
         {
             foreach (var pair in cbs.Where(kvp => kvp.Value != null))
             {
-                fillComboBox(pair.Value, pair.Key);
+                FillComboBox(pair.Value, pair.Key);
             }
         }
 
-        private void loadPortraitTypes()
+        private void LoadPortraitTypes()
         {
             object previouslySelectedBasePortrait = null;
             object previouslySelectedOverridePortrait = null;
@@ -564,18 +557,18 @@ namespace PortraitBuilder.UI
             {
                 cbCulturePortraitTypes.SelectedIndex = 0;
             }
-            character.PortraitType = getSelectedPortraitType();
+            character.PortraitType = GetSelectedPortraitType();
         }
 
-        private void updateActiveAdditionalContent()
+        private void UpdateActiveAdditionalContent()
         {
             List<Content> activeContent = new();
-            activeContent.AddRange(getSelectedContent(panelDLCs));
-            activeContent.AddRange(getSelectedContent(panelMods));
+            activeContent.AddRange(GetSelectedContent(panelDLCs));
+            activeContent.AddRange(GetSelectedContent(panelMods));
             loader.UpdateActiveAdditionalContent(activeContent);
         }
 
-        private List<Content> getSelectedContent(Panel panel)
+        private List<Content> GetSelectedContent(Panel panel)
         {
             List<Content> selectedContent = new();
             foreach (Control control in panel.Controls)
@@ -589,7 +582,7 @@ namespace PortraitBuilder.UI
             return selectedContent;
         }
 
-        private void updateSelectedDisplayCharacteristicValues(Character character)
+        private void UpdateSelectedDisplayCharacteristicValues(Character character)
         {
             foreach (var pair in dnaComboBoxes.Where(kvp => kvp.Value != null))
             {
@@ -602,13 +595,13 @@ namespace PortraitBuilder.UI
             }
         }
 
-        private void updatePortrait(string dna, string properties, string customProperties)
+        private void UpdatePortrait(string dna, string properties, string customProperties)
         {
             character.Import(dna, properties + customProperties);
-            outputDNA();
+            OutputDNA();
         }
 
-        private FileSystemWatcher createModFilesWatcher(Content content)
+        private FileSystemWatcher CreateModFilesWatcher(Content content)
         {
             FileSystemWatcher watcher = new();
 
@@ -622,19 +615,19 @@ namespace PortraitBuilder.UI
 
             // Have the callbacks execute in Main thread
             watcher.SynchronizingObject = this;
-            watcher.Changed += new FileSystemEventHandler(onContentFileChanged);
-            watcher.Created += new FileSystemEventHandler(onContentFileChanged);
-            watcher.Deleted += new FileSystemEventHandler(onContentFileChanged);
-            watcher.Renamed += new RenamedEventHandler(onContentFileRenamed);
+            watcher.Changed += new FileSystemEventHandler(OnContentFileChanged);
+            watcher.Created += new FileSystemEventHandler(OnContentFileChanged);
+            watcher.Deleted += new FileSystemEventHandler(OnContentFileChanged);
+            watcher.Renamed += new RenamedEventHandler(OnContentFileRenamed);
 
-            watcher.Error += new ErrorEventHandler(onWatcherError);
+            watcher.Error += new ErrorEventHandler(OnWatcherError);
 
             // Begin watching.
             watcher.EnableRaisingEvents = true;
             return watcher;
         }
 
-        private Content getAssociatedContent(FileSystemWatcher watcher)
+        private Content GetAssociatedContent(FileSystemWatcher watcher)
         {
             Content content = null;
 
@@ -649,37 +642,36 @@ namespace PortraitBuilder.UI
             return content;
         }
 
-        private void updateSelectedContent(List<CheckBox> cbs)
+        private void UpdateSelectedContent(List<CheckBox> cbs)
         {
             started = false;
-            updateActiveAdditionalContent();
-            loadPortraitTypes();
-            refreshCustomDisplayCharacteristics();
+            UpdateActiveAdditionalContent();
+            LoadPortraitTypes();
+            RefreshCustomDisplayCharacteristics();
 
-            fillDisplayCharacteristicComboBoxes();
+            FillDisplayCharacteristicComboBoxes();
             // TODO No refresh of DNA/Properties needed (if ComboBox has less options ?)
             started = true;
 
             foreach (CheckBox cb in cbs)
             {
-                Mod content = usableContents[cb] as Mod;
-                if (content != null)
+                if (usableContents[cb] is Mod content)
                 {
                     content.Watcher.EnableRaisingEvents = cb.Checked;
                 }
             }
 
-            drawPortrait();
+            DrawPortrait();
         }
 
-        private void refreshCustomDisplayCharacteristics()
+        private void RefreshCustomDisplayCharacteristics()
         {
-            unregisterCustomProperties();
-            foreach (var dc in getSelectedPortraitType().CustomCharacteristics)
+            UnregisterCustomProperties();
+            foreach (var dc in GetSelectedPortraitType().CustomCharacteristics)
             {
                 if (!customPropertiesComboBoxes.ContainsKey(dc))
                 {
-                    registerDisplayCharacteristic(panelProperties, dc);
+                    RegisterDisplayCharacteristic(panelProperties, dc);
                 }
             }
         }
@@ -688,45 +680,43 @@ namespace PortraitBuilder.UI
         // Event handlers
         ///////////////////
 
-        private void onChangeDisplayCharacteristic(object sender, EventArgs e)
+        private void OnChangeDisplayCharacteristic(object sender, EventArgs e)
         {
             if (started)
             {
                 // Assumption: customPropertiesComboBoxes are contiguous !
-                updatePortrait(getDisplayCharacteristicsString(dnaComboBoxes), getDisplayCharacteristicsString(propertiesComboBoxes), getDisplayCharacteristicsString(customPropertiesComboBoxes));
-                drawPortrait();
+                UpdatePortrait(GetDisplayCharacteristicsString(dnaComboBoxes), GetDisplayCharacteristicsString(propertiesComboBoxes), GetDisplayCharacteristicsString(customPropertiesComboBoxes));
+                DrawPortrait();
             }
         }
 
-        private void onChangeRank(object sender, EventArgs e)
+        private void OnChangeRank(object sender, EventArgs e)
         {
             character.Rank = (TitleRank)cbRank.SelectedIndex;
-            drawPortrait();
+            DrawPortrait();
         }
 
-        private void onChangeGovernment(object sender, EventArgs e)
+        private void OnChangeGovernment(object sender, EventArgs e)
         {
             character.Government = (GovernmentType)cbGovernment.SelectedIndex;
-            drawPortrait();
+            DrawPortrait();
         }
 
-        private void onClickCopy(object sender, EventArgs e)
+        private void OnClickCopy(object sender, EventArgs e)
         {
             Clipboard.SetText(tbDNA.Text);
         }
 
-        private void onClickSave(object sender, EventArgs e)
+        private void OnClickSave(object sender, EventArgs e)
         {
             string file = Snippets.SaveFileDialog("Save Image", "PNG|*.png", null);
             if (string.IsNullOrEmpty(file)) return;
 
-            using (var fs = File.Create(file))
-            {
-                previewImage.Encode().SaveTo(fs);
-            }
+            using var fs = File.Create(file);
+            previewImage.Encode().SaveTo(fs);
         }
 
-        private void onClickImport(object sender, EventArgs e)
+        private void OnClickImport(object sender, EventArgs e)
         {
             ImportDialog dialog = new();
 
@@ -734,117 +724,117 @@ namespace PortraitBuilder.UI
             {
                 started = false;
 
-                updatePortrait(dialog.character.DNA, dialog.character.Properties, "");
+                UpdatePortrait(dialog.character.DNA, dialog.character.Properties, "");
 
                 // Reflect on dropdown
-                updateSelectedDisplayCharacteristicValues(character);
+                UpdateSelectedDisplayCharacteristicValues(character);
 
                 started = true;
 
-                drawPortrait();
+                DrawPortrait();
             }
         }
 
-        private void onClickRandomize(object sender, EventArgs e)
+        private void OnClickRandomize(object sender, EventArgs e)
         {
             started = false;
-            randomizeDisplayCharacteristics(false);
+            RandomizeDisplayCharacteristics(false);
             started = true;
 
-            drawPortrait();
+            DrawPortrait();
         }
 
         /// <summary>
         /// Called each time a content CheckBox is ticked/unticked
         /// </summary>
-        private void onCheckContent(object sender, EventArgs e)
+        private void OnCheckContent(object sender, EventArgs e)
         {
             CheckBox cb = (CheckBox)sender;
             List<CheckBox> cbs = new();
             cbs.Add(cb);
-            updateSelectedContent(cbs);
+            UpdateSelectedContent(cbs);
         }
 
-        private void onChangePortraitType(object sender, EventArgs e)
+        private void OnChangePortraitType(object sender, EventArgs e)
         {
             if (!started)
                 return;
 
             started = false;
 
-            PortraitType selectedPortraitType = getSelectedPortraitType();
+            PortraitType selectedPortraitType = GetSelectedPortraitType();
             character.PortraitType = selectedPortraitType;
 
-            refreshCustomDisplayCharacteristics();
+            RefreshCustomDisplayCharacteristics();
 
-            fillDisplayCharacteristicComboBoxes();
-            updateSelectedDisplayCharacteristicValues(character);
+            FillDisplayCharacteristicComboBoxes();
+            UpdateSelectedDisplayCharacteristicValues(character);
 
             started = true;
 
-            drawPortrait();
+            DrawPortrait();
         }
 
-        private void onClickReload(object sender, EventArgs e)
+        private void OnClickReload(object sender, EventArgs e)
         {
             usableContents.Clear();
-            load(true);
+            LoadGame(true);
         }
 
-        private void onClickToogleAll(object sender, EventArgs e)
+        private void OnClickToggleAll(object sender, EventArgs e)
         {
             TabPage tabPage = tabContent.SelectedTab;
             List<CheckBox> cbs = new();
             foreach (CheckBox checkbox in tabPage.Controls[0].Controls)
             {
                 // Remove handler so it doesn't trigger
-                checkbox.CheckedChanged -= onCheckContent;
+                checkbox.CheckedChanged -= OnCheckContent;
                 checkbox.Checked = nextToogleIsSelectAll;
-                checkbox.CheckedChanged += onCheckContent;
+                checkbox.CheckedChanged += OnCheckContent;
                 cbs.Add(checkbox);
             }
             nextToogleIsSelectAll = !nextToogleIsSelectAll;
-            updateSelectedContent(cbs);
+            UpdateSelectedContent(cbs);
         }
 
-        private void onContentFileChanged(object sender, FileSystemEventArgs e)
+        private void OnContentFileChanged(object sender, FileSystemEventArgs e)
         {
             FileSystemWatcher watcher = sender as FileSystemWatcher;
-            onContentChange(watcher, e.FullPath);
+            OnContentChange(watcher, e.FullPath);
         }
 
-        private void onContentFileRenamed(object sender, RenamedEventArgs e)
+        private void OnContentFileRenamed(object sender, RenamedEventArgs e)
         {
             FileSystemWatcher watcher = sender as FileSystemWatcher;
-            onContentChange(watcher, e.OldFullPath);
+            OnContentChange(watcher, e.OldFullPath);
         }
 
-        private void onContentChange(FileSystemWatcher watcher, string path)
+        private void OnContentChange(FileSystemWatcher watcher, string path)
         {
             // Workaround same change firing multiple events
             watcher.EnableRaisingEvents = false;
 
-            Content content = getAssociatedContent(watcher);
+            Content content = GetAssociatedContent(watcher);
 
             if (content != null)
             {
-                logger.LogInformation(string.Format("Content change for {0} in content {1}", path, content));
+                logger.LogInformation("Content change for {path} in content {content}", path, content);
                 loader.RefreshContent(content);
-                loadPortraitTypes();
-                fillDisplayCharacteristicComboBoxes();
-                drawPortrait();
+                LoadPortraitTypes();
+                FillDisplayCharacteristicComboBoxes();
+                DrawPortrait();
             }
             else
             {
-                logger.LogError(string.Format("No content matched for watcher on file {0}", path));
+                logger.LogError("No content matched for watcher on file {path}", path);
             }
 
             watcher.EnableRaisingEvents = true;
         }
 
-        private void onWatcherError(object sender, ErrorEventArgs e)
+        private void OnWatcherError(object sender, ErrorEventArgs e)
         {
-            logger.LogError("FileSystemWatcher unable to continue", e.GetException());
+            logger.LogError(e.GetException(), "FileSystemWatcher unable to continue");
         }
     }
 }

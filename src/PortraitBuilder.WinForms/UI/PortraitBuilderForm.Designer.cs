@@ -1,7 +1,6 @@
-﻿using System;
-
-namespace PortraitBuilder.UI {
-	partial class PortraitBuilderForm {
+﻿namespace PortraitBuilder.UI
+{
+    partial class PortraitBuilderForm {
 		/// <summary>
 		/// Required designer variable.
 		/// </summary>
@@ -123,7 +122,7 @@ namespace PortraitBuilder.UI {
             this.cbGovernment.Name = "cbGovernment";
             this.cbGovernment.Size = new System.Drawing.Size(158, 23);
             this.cbGovernment.TabIndex = 25;
-            this.cbGovernment.SelectedIndexChanged += new System.EventHandler(this.onChangeGovernment);
+            this.cbGovernment.SelectedIndexChanged += new System.EventHandler(this.OnChangeGovernment);
             // 
             // label22
             // 
@@ -144,7 +143,7 @@ namespace PortraitBuilder.UI {
             this.btnSave.TabIndex = 22;
             this.btnSave.Text = "Save Image";
             this.btnSave.UseVisualStyleBackColor = true;
-            this.btnSave.Click += new System.EventHandler(this.onClickSave);
+            this.btnSave.Click += new System.EventHandler(this.OnClickSave);
             // 
             // btnCopy
             // 
@@ -155,7 +154,7 @@ namespace PortraitBuilder.UI {
             this.btnCopy.TabIndex = 23;
             this.btnCopy.Text = "Copy";
             this.btnCopy.UseVisualStyleBackColor = true;
-            this.btnCopy.Click += new System.EventHandler(this.onClickCopy);
+            this.btnCopy.Click += new System.EventHandler(this.OnClickCopy);
             // 
             // tbDNA
             // 
@@ -214,7 +213,7 @@ namespace PortraitBuilder.UI {
             this.cbRank.Name = "cbRank";
             this.cbRank.Size = new System.Drawing.Size(158, 23);
             this.cbRank.TabIndex = 21;
-            this.cbRank.SelectedIndexChanged += new System.EventHandler(this.onChangeRank);
+            this.cbRank.SelectedIndexChanged += new System.EventHandler(this.OnChangeRank);
             // 
             // label20
             // 
@@ -309,7 +308,7 @@ namespace PortraitBuilder.UI {
             this.cbCulturePortraitTypes.Name = "cbCulturePortraitTypes";
             this.cbCulturePortraitTypes.Size = new System.Drawing.Size(234, 23);
             this.cbCulturePortraitTypes.TabIndex = 26;
-            this.cbCulturePortraitTypes.SelectedIndexChanged += new System.EventHandler(this.onChangePortraitType);
+            this.cbCulturePortraitTypes.SelectedIndexChanged += new System.EventHandler(this.OnChangePortraitType);
             // 
             // label1
             // 
@@ -340,7 +339,7 @@ namespace PortraitBuilder.UI {
             this.btnRandom.TabIndex = 11;
             this.btnRandom.Text = "Randomize";
             this.btnRandom.UseVisualStyleBackColor = true;
-            this.btnRandom.Click += new System.EventHandler(this.onClickRandomize);
+            this.btnRandom.Click += new System.EventHandler(this.OnClickRandomize);
             // 
             // btnImport
             // 
@@ -351,7 +350,7 @@ namespace PortraitBuilder.UI {
             this.btnImport.TabIndex = 11;
             this.btnImport.Text = "Import";
             this.btnImport.UseVisualStyleBackColor = true;
-            this.btnImport.Click += new System.EventHandler(this.onClickImport);
+            this.btnImport.Click += new System.EventHandler(this.OnClickImport);
             // 
             // cbPortraitTypes
             // 
@@ -363,7 +362,7 @@ namespace PortraitBuilder.UI {
             this.cbPortraitTypes.Name = "cbPortraitTypes";
             this.cbPortraitTypes.Size = new System.Drawing.Size(234, 23);
             this.cbPortraitTypes.TabIndex = 2;
-            this.cbPortraitTypes.SelectedIndexChanged += new System.EventHandler(this.onChangePortraitType);
+            this.cbPortraitTypes.SelectedIndexChanged += new System.EventHandler(this.OnChangePortraitType);
             // 
             // tabContent
             // 
@@ -444,7 +443,7 @@ namespace PortraitBuilder.UI {
             this.btnToogleAll.TabIndex = 6;
             this.btnToogleAll.Text = "Toggle All";
             this.btnToogleAll.UseVisualStyleBackColor = true;
-            this.btnToogleAll.Click += new System.EventHandler(this.onClickToogleAll);
+            this.btnToogleAll.Click += new System.EventHandler(this.OnClickToggleAll);
             // 
             // btnReload
             // 
@@ -455,7 +454,7 @@ namespace PortraitBuilder.UI {
             this.btnReload.TabIndex = 5;
             this.btnReload.Text = "Reload";
             this.btnReload.UseVisualStyleBackColor = true;
-            this.btnReload.Click += new System.EventHandler(this.onClickReload);
+            this.btnReload.Click += new System.EventHandler(this.OnClickReload);
             // 
             // PortraitBuilderForm
             // 

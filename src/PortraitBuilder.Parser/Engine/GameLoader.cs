@@ -1,13 +1,10 @@
-﻿using System;
+﻿using Microsoft.Extensions.Logging;
+using PortraitBuilder.Model.Content;
+using PortraitBuilder.Parser;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using PortraitBuilder.Model;
-using PortraitBuilder.Parser;
-using PortraitBuilder.Model.Content;
-using PortraitBuilder.Model.Portrait;
-using Microsoft.Extensions.Logging;
 using System.IO.Compression;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace PortraitBuilder.Engine
@@ -28,9 +25,11 @@ namespace PortraitBuilder.Engine
 
         public void LoadVanilla(string gameDir)
         {
-            Vanilla = new Content();
-            Vanilla.Name = "vanilla";
-            Vanilla.AbsolutePath = gameDir;
+            Vanilla = new Content
+            {
+                Name = "vanilla",
+                AbsolutePath = gameDir
+            };
 
             logger.LogInformation("Loading portraits from vanilla.");
             var reader = new PortraitReader(gameDir);
