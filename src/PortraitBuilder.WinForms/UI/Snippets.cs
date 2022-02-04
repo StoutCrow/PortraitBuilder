@@ -7,7 +7,7 @@ namespace PortraitBuilder.UI
 
         public static string OpenFileDialog(string sTitle, string sFilter, string sReturn)
         {
-            using (OpenFileDialog dFileDialog = new OpenFileDialog())
+            using (OpenFileDialog dFileDialog = new())
             {
                 dFileDialog.Title = sTitle;
                 dFileDialog.CheckFileExists = true;
@@ -29,7 +29,7 @@ namespace PortraitBuilder.UI
 
         public static string SaveFileDialog(string sTitle, string sFilter, string sReturn)
         {
-            using (SaveFileDialog dFileDialog = new SaveFileDialog())
+            using (SaveFileDialog dFileDialog = new())
             {
                 dFileDialog.Title = sTitle;
                 dFileDialog.CheckPathExists = true;

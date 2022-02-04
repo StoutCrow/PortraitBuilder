@@ -19,9 +19,9 @@ namespace PortraitBuilder.Parser
         /// <param name="folder">Path to the folder containing the files to load.</param>
         public static List<Mod> ParseFolder(string folder)
         {
-            List<Mod> mods = new List<Mod>();
+            List<Mod> mods = new();
 
-            DirectoryInfo dir = new DirectoryInfo(folder);
+            DirectoryInfo dir = new(folder);
             if (dir.Exists)
             {
                 var modFiles = dir.EnumerateFiles("*.mod");
@@ -64,11 +64,11 @@ namespace PortraitBuilder.Parser
             }
 
             string line;
-            FileInfo modFile = new FileInfo(filename);
-            Mod mod = new Mod();
+            FileInfo modFile = new(filename);
+            Mod mod = new();
             mod.ModFile = modFile.Name;
 
-            StreamReader reader = new StreamReader(filename, WesternEncoding);
+            StreamReader reader = new(filename, WesternEncoding);
             while ((line = reader.ReadLine()) != null)
             {
                 if (line.StartsWith("#"))

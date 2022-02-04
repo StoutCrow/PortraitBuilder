@@ -64,6 +64,6 @@ namespace PortraitBuilder.Online
             bmp.SetImmutable();
             return bmp;
         }
-        private static readonly ConcurrentDictionary<string, SKBitmap> _blobTileCache = new ConcurrentDictionary<string, SKBitmap>();
+        private static readonly ConcurrentDictionary<string, SKBitmap> _blobTileCache = new();
     }
 }

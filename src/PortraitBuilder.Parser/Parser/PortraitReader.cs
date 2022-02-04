@@ -23,7 +23,7 @@ namespace PortraitBuilder.Parser
         /// <summary>
         /// Stateless portrait_offsets.txt file scanner
         /// </summary>
-        private PortraitOffsetReader portraitOffsetReader = new PortraitOffsetReader();
+        private readonly PortraitOffsetReader portraitOffsetReader = new();
 
         public string BaseDir { get; }
 
@@ -140,8 +140,8 @@ namespace PortraitBuilder.Parser
             using (var fileReader = new StreamReader(fs, WesternEncoding))
             {
                 //Parse the file
-                PortraitReaderLexer lexer = new PortraitReaderLexer(fileReader);
-                PortraitReaderParser parser = new PortraitReaderParser(lexer);
+                PortraitReaderLexer lexer = new(fileReader);
+                PortraitReaderParser parser = new(lexer);
 
                 result = parser.Parse();
             }
@@ -202,7 +202,7 @@ namespace PortraitBuilder.Parser
 
         private PortraitType ParsePortraitType(ASTNode node, string filename)
         {
-            PortraitType portraitType = new PortraitType();
+            PortraitType portraitType = new();
 
             List<ASTNode> children = node.Children.Where(child => child.Symbol.Name == "Option").ToList();
             string id, value;
@@ -272,7 +272,7 @@ namespace PortraitBuilder.Parser
 
         private List<SKColor> ParseEyeColours(ASTNode node)
         {
-            List<SKColor> colours = new List<SKColor>();
+            List<SKColor> colours = new();
             IEnumerable<ASTNode> children = node.Children.Where(child => child.Symbol.Name == "colourGroup");
 
             foreach (ASTNode child in children)
@@ -284,7 +284,7 @@ namespace PortraitBuilder.Parser
 
         private List<Hair> ParseHairColours(ASTNode node)
         {
-            List<Hair> hairs = new List<Hair>();
+            List<Hair> hairs = new();
             List<ASTNode> children = node.Children.Where(child => child.Symbol.Name == "colourGroup").ToList();
 
             for (int i = 0; i < children.Count; i += 3)
@@ -319,7 +319,7 @@ namespace PortraitBuilder.Parser
 
         private List<Layer> ParseLayers(ASTNode node, string filename)
         {
-            List<Layer> layers = new List<Layer>();
+            List<Layer> layers = new();
             foreach (ASTNode child in node.Children)
             {
                 try
@@ -338,7 +338,7 @@ namespace PortraitBuilder.Parser
         {
             string[] layerParts = node.Value.Replace("\"", "").Split(':');
 
-            Layer layer = new Layer();
+            Layer layer = new();
             layer.Name = layerParts[0];
 
             for (int i = 1; i < layerParts.Length; i++)

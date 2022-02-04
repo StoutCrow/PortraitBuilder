@@ -28,10 +28,10 @@ namespace PortraitBuilder.Parser
                 return null;
             }
 
-            Dictionary<string, Point> offsets = new Dictionary<string, Point>();
+            Dictionary<string, Point> offsets = new();
 
             string line;
-            using (StreamReader reader = new StreamReader(filename, WesternEncoding))
+            using (StreamReader reader = new(filename, WesternEncoding))
             {
                 while ((line = reader.ReadLine()) != null)
                 {
@@ -49,7 +49,7 @@ namespace PortraitBuilder.Parser
             string[] words = line.Split(' ');
             if (words.Length == 2)
             {
-                Point offset = new Point();
+                Point offset = new();
                 string layerName = words[0];
 
                 offset.X = int.Parse(words[1].Split('x')[0]);

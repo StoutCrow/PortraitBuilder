@@ -7,7 +7,7 @@ namespace PortraitBuilder.Engine
 {
     public class SimpleSprite : ISprite
     {
-        private IReadOnlyList<SKBitmap> _bitmaps;
+        private readonly IReadOnlyList<SKBitmap> _bitmaps;
         public SimpleSprite(IReadOnlyList<SKBitmap> bitmaps)
         {
             _bitmaps = bitmaps ?? throw new ArgumentNullException(nameof(bitmaps));

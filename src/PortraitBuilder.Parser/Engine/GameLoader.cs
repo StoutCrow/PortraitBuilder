@@ -109,7 +109,7 @@ namespace PortraitBuilder.Engine
 
         public List<Mod> LoadMods(string modDir)
         {
-            List<Mod> mods = new List<Mod>();
+            List<Mod> mods = new();
             if (Directory.Exists(modDir))
             {
                 logger.LogInformation("Loading mods from " + modDir);

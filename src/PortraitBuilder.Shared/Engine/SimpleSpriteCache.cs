@@ -8,7 +8,7 @@ namespace PortraitBuilder.Engine
     {
         private readonly Func<SpriteDef, T> _resolver;
 
-        private readonly ConcurrentDictionary<SpriteDef, T> _sprites = new ConcurrentDictionary<SpriteDef, T>();
+        private readonly ConcurrentDictionary<SpriteDef, T> _sprites = new();
 
         public SimpleSpriteCache(Func<SpriteDef, T> resolver)
         {

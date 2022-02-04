@@ -16,7 +16,7 @@ namespace PortraitBuilder.Parser
 
         public static IEnumerable<DLC> ParseFolder(string folder)
         {
-            DirectoryInfo dir = new DirectoryInfo(folder);
+            DirectoryInfo dir = new(folder);
             if (!dir.Exists)
             {
                 logger.LogError(string.Format("Folder not found: {0}", dir.FullName));

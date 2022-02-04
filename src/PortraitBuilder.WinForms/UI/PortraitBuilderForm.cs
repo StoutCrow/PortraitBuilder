@@ -28,7 +28,6 @@ namespace PortraitBuilder.UI
         private SKImage previewImage;
 
         private bool started = false;
-        public static Random rand = new Random();
 
         private Boolean nextToogleIsSelectAll = true;
 
@@ -39,31 +38,31 @@ namespace PortraitBuilder.UI
         /// <summary>
         /// List of all available DLCs and Mods, indexed by their corresponding checkbox
         /// </summary>
-        private Dictionary<CheckBox, Content> usableContents = new Dictionary<CheckBox, Content>();
+        private readonly Dictionary<CheckBox, Content> usableContents = new();
 
         /// <summary>
         /// The portrait being previewed. 
         /// 
         /// This is the primary Model object, whose state is modified by UI inputs, and used to display the output.
         /// </summary>
-        private Character character = new Character();
+        private readonly Character character = new();
 
         /// <summary>
         /// ComboBox for vanilla dna, ordered by their dna index.
         /// </summary>
-        private Dictionary<Characteristic, ComboBox> dnaComboBoxes = new Dictionary<Characteristic, ComboBox>();
+        private readonly Dictionary<Characteristic, ComboBox> dnaComboBoxes = new();
 
         /// <summary>
         /// ComboBox for vanilla properties, ordered by their properties index.
         /// </summary>
-        private Dictionary<Characteristic, ComboBox> propertiesComboBoxes = new Dictionary<Characteristic, ComboBox>();
+        private readonly Dictionary<Characteristic, ComboBox> propertiesComboBoxes = new();
 
         /// <summary>
         /// ComboBox for custom mod properties, ordered by their properties index, and dynamically refreshed per portraitType.
         /// </summary>
-        private Dictionary<Characteristic, ComboBox> customPropertiesComboBoxes = new Dictionary<Characteristic, ComboBox>();
+        private readonly Dictionary<Characteristic, ComboBox> customPropertiesComboBoxes = new();
 
-        private ToolTip toolTip = new ToolTip();
+        private readonly ToolTip toolTip = new();
 
         public PortraitBuilderForm()
         {
@@ -78,18 +77,18 @@ namespace PortraitBuilder.UI
                 registerDisplayCharacteristic(panelProperties, property);
             }
 
-            initializeForm();
+            InitializeForm();
             load(false);
             started = true;
         }
 
-        private void initializeForm()
+        private void InitializeForm()
         {
             logger.LogInformation("Portrait Builder Version " + Application.ProductVersion);
             // Add the version to title
             this.Text += " " + Application.ProductVersion;
 
-            initializeTooltip();
+            InitializeTooltip();
 
             _user = new User();
             _user.GameDir = readGameDir();
@@ -101,7 +100,7 @@ namespace PortraitBuilder.UI
             loader = new GameLoader();
         }
 
-        private void initializeTooltip()
+        private void InitializeTooltip()
         {
             // Set up the delays for the ToolTip.
             toolTip.AutoPopDelay = 5000;
@@ -164,7 +163,7 @@ namespace PortraitBuilder.UI
 
         private void registerContent(Control container, Content content)
         {
-            CheckBox checkbox = new CheckBox();
+            CheckBox checkbox = new();
             checkbox.Text = content.Name;
             checkbox.AutoEllipsis = true;
             checkbox.Width = 190; // Force overflow
@@ -198,7 +197,7 @@ namespace PortraitBuilder.UI
 
         private void registerDisplayCharacteristic(Control container, Characteristic characteristic)
         {
-            ComboBox combobox = new ComboBox
+            ComboBox combobox = new()
             {
                 Width = 90,
                 Padding = new Padding(0),
@@ -206,14 +205,14 @@ namespace PortraitBuilder.UI
             };
             combobox.SelectedValueChanged += this.onChangeDisplayCharacteristic;
 
-            Label label = new Label
+            Label label = new()
             {
                 Text = $"{characteristic}:",
                 Width = 90,
                 TextAlign = ContentAlignment.MiddleRight
             };
 
-            CheckBox randomizable = new CheckBox
+            CheckBox randomizable = new()
             {
                 Width = 20,
                 Padding = new Padding(5, 0, 0, 0)
@@ -252,7 +251,7 @@ namespace PortraitBuilder.UI
         private string readGameDir()
         {
             Stream stream = new FileStream("gamedir.txt", FileMode.Open);
-            StreamReader reader = new StreamReader(stream);
+            StreamReader reader = new(stream);
             String gameDir = reader.ReadToEnd();
             logger.LogInformation("Read gamedir: " + gameDir);
             return gameDir;
@@ -269,7 +268,7 @@ namespace PortraitBuilder.UI
             {
                 logger.LogInformation("Reading userdir.txt to determine the mod directory.");
                 Stream stream = new FileStream(userdirFilePath, FileMode.Open);
-                StreamReader reader = new StreamReader(stream, Encoding.Default);
+                StreamReader reader = new(stream, Encoding.Default);
                 userDir = reader.ReadLine() + Path.DirectorySeparatorChar;
                 logger.LogInformation("Found userdir.txt with path: " + userDir);
             }
@@ -370,7 +369,7 @@ namespace PortraitBuilder.UI
 
         private string getDisplayCharacteristicsString(Dictionary<Characteristic, ComboBox> characteristics)
         {
-            StringBuilder sb = new StringBuilder();
+            StringBuilder sb = new();
             foreach (ComboBox cb in characteristics.Values)
             {
                 char letter = '0';
@@ -387,7 +386,7 @@ namespace PortraitBuilder.UI
         private void outputDNA()
         {
             logger.LogDebug(" --Outputting DNA and Property strings.");
-            StringBuilder dnaPropOutput = new StringBuilder();
+            StringBuilder dnaPropOutput = new();
 
             dnaPropOutput.Append("  dna=\"");
             dnaPropOutput.Append(character.DNA);
@@ -570,7 +569,7 @@ namespace PortraitBuilder.UI
 
         private void updateActiveAdditionalContent()
         {
-            List<Content> activeContent = new List<Content>();
+            List<Content> activeContent = new();
             activeContent.AddRange(getSelectedContent(panelDLCs));
             activeContent.AddRange(getSelectedContent(panelMods));
             loader.UpdateActiveAdditionalContent(activeContent);
@@ -578,7 +577,7 @@ namespace PortraitBuilder.UI
 
         private List<Content> getSelectedContent(Panel panel)
         {
-            List<Content> selectedContent = new List<Content>();
+            List<Content> selectedContent = new();
             foreach (Control control in panel.Controls)
             {
                 CheckBox checkbox = (CheckBox)control;
@@ -611,7 +610,7 @@ namespace PortraitBuilder.UI
 
         private FileSystemWatcher createModFilesWatcher(Content content)
         {
-            FileSystemWatcher watcher = new FileSystemWatcher();
+            FileSystemWatcher watcher = new();
 
             watcher.Path = content.AbsolutePath;
             watcher.IncludeSubdirectories = true;
@@ -729,7 +728,7 @@ namespace PortraitBuilder.UI
 
         private void onClickImport(object sender, EventArgs e)
         {
-            ImportDialog dialog = new ImportDialog();
+            ImportDialog dialog = new();
 
             if (dialog.ShowDialog(this) == DialogResult.OK)
             {
@@ -761,7 +760,7 @@ namespace PortraitBuilder.UI
         private void onCheckContent(object sender, EventArgs e)
         {
             CheckBox cb = (CheckBox)sender;
-            List<CheckBox> cbs = new List<CheckBox>();
+            List<CheckBox> cbs = new();
             cbs.Add(cb);
             updateSelectedContent(cbs);
         }
@@ -795,7 +794,7 @@ namespace PortraitBuilder.UI
         private void onClickToogleAll(object sender, EventArgs e)
         {
             TabPage tabPage = tabContent.SelectedTab;
-            List<CheckBox> cbs = new List<CheckBox>();
+            List<CheckBox> cbs = new();
             foreach (CheckBox checkbox in tabPage.Controls[0].Controls)
             {
                 // Remove handler so it doesn't trigger

@@ -9,7 +9,7 @@ namespace PortraitBuilder.UI
         private bool isDNAValid = false;
         private bool isPropertiesValid = false;
 
-        public Character character = new Character();
+        public Character character = new();
 
         public ImportDialog()
         {
