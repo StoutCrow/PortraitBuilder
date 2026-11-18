@@ -1,73 +1,95 @@
-# CK2 PortraitBuilder
+<p align="center"><img src="assets/branding/logo-256.png" width="128" alt="Portrait Builder logo: a crowned figure in a gilt ring"></p>
 
-<table>
-  <tr>
-    <th style="text-align:center">Build Server</th>
-    <th>Framework</th>
-    <th style="text-align:center">Status</th>
-  </tr>
-  <tr>
-    <td style="text-align:center">AppVeyor</td>
-    <td>.NET 4.6</td>
-    <td style="text-align:center"><a href="https://ci.appveyor.com/project/rquinio/portraitbuilder/branch/master"><img src="https://ci.appveyor.com/api/projects/status/ssardstb8qkm35sy/branch/master?svg=true" alt="AppVeyor build status" /></a></td>
-  </tr>
-  <tr>
-    <td style="text-align:center">Travis</td>
-    <td>Mono 5.x</td>
-    <td style="text-align:center"><a href="https://travis-ci.org/rquinio/PortraitBuilder"><img src="https://travis-ci.org/rquinio/PortraitBuilder.svg?branch=master" alt="Travis build status" /></a></td>
-  </tr>
-</table>
+# Portrait Builder (CK2), a modernized fork
 
-PortraitBuilder is a Winforms application to help CK2 modders creating custom characters, by previewing their appearance, which can then be used in character history of mods, or to customize a character in a saved game.
+> ## This version was coded entirely by AI
+> Every change that separates this fork from the code it started from was written by an AI model: **Claude, made by Anthropic**. That covers the new interface, the picture tiles, saving and exporting, the move to current .NET, the logo, and this README.
+> The project owner directed the work in conversation and tried the results. They did not write the code.
+> It was tested by running the program. **No person has reviewed it line by line.** Please treat it as AI-generated software: useful, but unaudited.
+>
+> The older code underneath was written by people, and they deserve the credit for it: see [Lineage](#lineage).
 
-This project is a fork of [Measter's 1.x PortraitBuilder](https://github.com/Measter/PortraitBuilder).
+A Windows tool that builds **Crusader Kings II** character portraits. Pick a look from pictures instead of dropdowns, then save the image or copy the DNA strings that CK2 character files use.
 
-See the dedicated [CK2 forum thread](https://forum.paradoxplaza.com/forum/index.php?threads/utility-portrait-builder-v2.941117/), after registering your CK2 game.
+It draws portraits from **your own CK2 install**. No game art is included here.
 
-## Features
+## What it does
 
-- Reading portraits from vanilla, DLCs zip archives and mod folders
-- Saving current portrait as png image
-- Import/export of DNA & properties strings
+- **Pick from pictures.** Race, hair, clothes, headgear, background, face features, rank and government are all grids of tiles. Each tile is your current portrait with that one option applied, so you see what a click will change.
+- **Roles.** One click sets rank and government for a kind of person (priest, merchant, king, warlord and so on) and rolls a fresh look. Government is what dresses a priest or merchant; a "knight" is only a rank frame.
+- **Randomize** the features you tick, with undo and redo. A strip of recent portraits stays under the picture.
+- **Keep and Saved.** Keep a portrait and bring it back later. The portrait you closed with is restored on the next start.
+- **Export** as PNG at 1x to 8x, with an optional transparent background and no frame. Save 10 random portraits to a folder, or a contact sheet of 20.
+- **DNA in and out.** Copy, paste (Ctrl+V) and import the dna and properties strings.
+- **DLC and mods.** Reads portraits from the base game, DLC and mod folders, as the earlier versions did.
+- **Looks.** Plain Windows, following the system light or dark setting, or an optional parchment-and-gilt "Medieval" style.
 
-## .NET users (Windows)
+## What you need
 
-- Install [.NET 4.6](https://www.microsoft.com/en-US/download/details.aspx?id=48130)
-- Start PortraitBuilder.exe
-- Select your CK2 game executable (ex: C:\Program Files (x86)\Steam\SteamApps\common\Crusader Kings II\CK2game.exe). This value is kept into a file "gamedir.txt".
-- Errors are logged to a log.txt file. Adding -logfull to PortraitBuilder.exe launch options will set log level to DEBUG.
+- Windows 10 or 11 (this fork is Windows only; the Mono, Linux and Mac support of the older versions was not carried over)
+- Crusader Kings II installed (Steam is what it was tested with)
+- To build it: the [.NET 10 SDK](https://dotnet.microsoft.com/download)
 
-## Mono users (Linux/Mac/Windows)
+There is no download of a ready-made program. Build it yourself:
 
-- Install [Mono 5.x](http://www.mono-project.com/download/). Note: GTK# is not required.
-- Run ". PortraitBuilder" which is an alias for "MONO_PATH=./lib mono PortraitBuilder.exe"
-Note: on MacOS, use: "MONO_PATH=./lib mono --arch=32 PortraitBuilder.exe", as [WinForms only work with Mono 32bits on MacOS](http://www.mono-project.com/docs/about-mono/supported-platforms/osx/#32-and-64-bit-support)
-- Select your CK2 game executable (ex: ~/.local/share/Steam/SteamApps/common/Crusader Kings II/ck2 or /Users/USER/Library/Application Support/Steam/SteamApps/common/crusader kings ii/ck2.app). This value is kept into a file "gamedir.txt".
-- Errors are logged to a log.txt file
+```bash
+dotnet build src/PortraitBuilder.WinForms -c Release
+```
 
-## Developers
+Run `src/PortraitBuilder.WinForms/bin/Release/net10.0-windows/PortraitBuilder.WinForms.exe`. The first time, it asks for your CK2 game file (for example `CK2game.exe` in the Steam folder) and remembers the folder in `gamedir.txt`.
 
-Install [Visual Studio Community 2017](https://www.visualstudio.com/downloads/).
+**Keep the folder path short.** Windows refuses to open a program whose full path passes 260 characters; this happened during development.
 
-Build from PortraitBuilder.sln, it will automatically download dependencies via NuGet from [packages.config](PortraitBuilder/packages.config) file.
+## Keys
 
-The built executable for .NET can also be executed with Mono, without needing to re-compile.
+| Key | Action |
+|---|---|
+| Ctrl+R or F5 | Randomize the ticked features |
+| Ctrl+Z, Ctrl+Y | Undo, redo |
+| Ctrl+D | Keep this portrait in Saved |
+| Ctrl+S | Save the image |
+| Ctrl+Shift+C | Copy the image |
+| Ctrl+V | Paste dna and properties |
+| F1 | All shortcuts |
 
-Main dependencies:
+Less-used things (image size, export options, batches, DNA actions, DLC and mods, style, appearance) are in the **More** menu.
 
-- [dds-reader](https://github.com/andburn/dds-reader) to read .dds images. A recompiled version targeting .NET 4.5 is used from /lib.
-- [Hime Parser Generator](https://bitbucket.org/cenotelie/hime/) to perform a basic parsing of CK2 files.
-- [SharpZipLib](http://www.icsharpcode.net/opensource/sharpziplib/) to unzip DLCs
-- [log4net](https://logging.apache.org/log4net/) to handle logging
+## Files it writes
 
-To re-generate the Lexer/Parser from the grammar, install [Hime standalone distribution](https://bitbucket.org/cenotelie/hime/downloads/), and use the himecc command line utility:
+Next to the program: `gamedir.txt` (your CK2 folder), `settings.txt` (window, options, last portrait), `saved.txt` (Keep), `log.txt`, and a `dlc` folder it creates. None of these are meant for version control (see `.gitignore`).
 
-> himecc PortraitReader.gram -n PortraitBuilder.Parser
+## Honest limits
 
-### Using Ubunutu on Windows 10
+- It is **not** reviewed by a person, and has only been run on one Windows 11 machine with one CK2 install (three DLCs).
+- The tests are few: five small unit tests. Most of the checking was done by running the program by hand.
+- Many face tiles look nearly the same. The game's face sprites differ only slightly at this size.
+- Clothing has no labels in the game files, so roles cannot pick armour or robes by themselves.
+- Tooltip-style hover cards on the recent-portraits strip were never seen working on screen.
+- `src/PortraitBuilder.Online`, `src/PortraitBuilder.ContentPacks` and `src/SpritePackGenerator` come from upstream. I did not build, test or change them, and the Online project did not build with current tools. They may be broken.
+- The build is a plain Debug or Release build; there is no installer and no signed release.
 
-Create the following symlinks to simulate a CK2 Steam installation on Unix:
+## Lineage
 
-- Game files: ln -s /mnt/c/Program\ Files\ \(x86\)/Steam ~/.local/share/Steam
-- Shortcut in home folder: ln -s ~/.local/share/Steam/SteamApps/common/Crusader\ Kings\ II ~/ck2
-- Mod folder: ln -s /mnt/c/Users/[user]/Documents/Paradox\ Interactive ~/.paradoxinteractive
+This is a fork of a fork of a fork, and the full git history is kept, so every earlier author is still credited on their own commits. From the history of [scorpdx/portraitbuilder](https://github.com/scorpdx/portraitbuilder), at the commit this fork started from (`32a132d`, 4 February 2022):
+
+| Commits | Author name in the history |
+|---:|---|
+| 198 | J. Zebedee (the `scorpdx` repository: SkiaSharp and newer .NET) |
+| 96 | rquinio / romain.quinio (2.x and 3.x; "Romulien" in the changelog) |
+| 4 | Measter (PortraitBuilder 1.x, the original) |
+| 2 | Stuart Haidon |
+
+The AI-written changes are separate commits on top of that history, so `git log` shows exactly where the human work ends and the AI work begins. See [CREDITS.md](CREDITS.md) for libraries and details. The earlier README is kept in [docs/UPSTREAM-README.md](docs/UPSTREAM-README.md).
+## Licence
+
+Free software under the **GNU GPL v3** ([COPYING](COPYING)), with the **GNU LGPL v3** ([COPYING.LESSER](COPYING.LESSER)) as shipped by the upstream project. I have not worked out which files fall under which; both files are kept as found. The AI-written changes are offered under the same terms.
+
+*Crusader Kings* is a trademark of Paradox Interactive. This project is not made, endorsed or supported by Paradox. The portrait art belongs to Paradox, which is also why this README has no screenshots: they would reproduce that art.
+
+## Branding
+
+The logo (a crowned figure inside a gilt ring) is original artwork, also drawn by the AI, using nothing from CK2. Source and generator: `assets/branding/` (`logo.svg`, `make-branding.ps1`, icons, social preview image).
+
+## Contributing
+
+Issues and pull requests are welcome. If you use an AI tool for a change, say so in the pull request. If you review any of the code, please say what you checked.

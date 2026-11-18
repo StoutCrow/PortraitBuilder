@@ -168,3 +168,12 @@ pip-log.txt
 # ignore launch settings
 launchSettings.json
 /src/PortraitBuilder.Online/Packs
+
+# Files the program writes next to itself
+log.txt
+settings.txt
+gamedir.txt
+saved.txt
+src/PortraitBuilder.WinForms/dlc/
+**/bin/Release/
+
