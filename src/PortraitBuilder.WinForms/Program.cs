@@ -20,6 +20,12 @@ namespace PortraitBuilder
         [STAThread]
         static void Main(string[] args)
         {
+            // gamedir.txt, dlc/ and log.txt are relative paths; anchor them to the exe so launching from a shortcut or another folder works.
+            Directory.SetCurrentDirectory(AppContext.BaseDirectory);
+
+            // Without this, Windows treats the app as DPI-unaware and bitmap-stretches the whole window, which is what made it look blurry.
+            Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
+
             LoggingHelper.LoggerFactory = new LoggerFactory().AddLog4Net();
             logger = LoggingHelper.CreateLogger("PortraitBuilder.WinForms");
 
@@ -27,6 +33,10 @@ namespace PortraitBuilder
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+            Application.SetDefaultFont(new System.Drawing.Font("Segoe UI", 9F));
+#pragma warning disable WFO5001 // dark mode support is still marked experimental
+            Application.SetColorMode(SystemColorMode.System); // follow the Windows light/dark setting
+#pragma warning restore WFO5001
 
             // Add handler for UI thread exceptions and force all WinForms errors to go through handler
             Application.ThreadException += new ThreadExceptionEventHandler(onUIThreadException);

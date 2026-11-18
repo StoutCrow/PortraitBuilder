@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using PortraitBuilder.Model.Content;
 using PortraitBuilder.Parser;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
@@ -81,6 +82,12 @@ namespace PortraitBuilder.Engine
         {
             string dlcCode = dlc.DLCFile.Replace(".dlc", "");
             string newDlcAbsolutePath = Path.Combine(dlcDir, dlcCode);
+            // The game updates DLC zips in place; drop a cache that is older than its zip.
+            if (Directory.Exists(newDlcAbsolutePath) && Directory.GetLastWriteTimeUtc(newDlcAbsolutePath) < File.GetLastWriteTimeUtc(dlc.AbsolutePath))
+            {
+                logger.LogInformation("DLC {0} changed since last extraction, refreshing cache", dlc.Name);
+                Directory.Delete(newDlcAbsolutePath, true);
+            }
             if (!Directory.Exists(newDlcAbsolutePath))
             {
                 logger.LogInformation(string.Format("Extracting {0} to {1}", dlc.Name, newDlcAbsolutePath));
@@ -102,6 +109,7 @@ namespace PortraitBuilder.Engine
 
                 // In any case, create the directory, so that it is ignored for next load.
                 Directory.CreateDirectory(newDlcAbsolutePath);
+                Directory.SetLastWriteTimeUtc(newDlcAbsolutePath, DateTime.UtcNow);
             }
             dlc.AbsolutePath = newDlcAbsolutePath;
         }
@@ -143,7 +151,7 @@ namespace PortraitBuilder.Engine
             }
             else
             {
-                logger.LogError("Mod directory {0} doesn't exist", modDir);
+                logger.LogInformation("No mod directory at {0}; continuing without mods", modDir);
             }
 
             return mods;
@@ -193,3 +201,5 @@ namespace PortraitBuilder.Engine
         }
     }
 }
+
+

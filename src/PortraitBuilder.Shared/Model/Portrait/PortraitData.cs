@@ -60,7 +60,8 @@ namespace PortraitBuilder.Model.Portrait
                     }
                     else
                     {
-                        logger.LogError("Sprite not found for layer " + layer);
+                        // The game's own portrait files reference some layers that have no sprite (e.g. frankish overlayer/undermain); the layer is just skipped.
+                        logger.LogDebug("Sprite not found for layer " + layer);
                     }
                 }
             }

@@ -58,14 +58,17 @@ namespace PortraitBuilder.Engine
             public SKColor EyeColor;
         }
 
-        public static IEnumerable<TileRenderStep> BuildCharacter(Character character, Dictionary<string, SpriteDef> sprites)
+        /// <param name="includeBackground">False leaves the scenery behind the figure transparent (for export).</param>
+        /// <param name="includeBorder">False leaves out the rank and government frame (for export).</param>
+        public static IEnumerable<TileRenderStep> BuildCharacter(Character character, Dictionary<string, SpriteDef> sprites, bool includeBackground = true, bool includeBorder = true)
         {
             foreach (var layer in character.PortraitType.Layers)
             {
+                if (!includeBackground && layer.Characteristic == DefaultCharacteristics.BACKGROUND) continue;
                 yield return BuildLayer(layer, character, sprites);
             }
 
-            yield return BuildBorder(character, sprites);
+            if (includeBorder) yield return BuildBorder(character, sprites);
         }
 
         public static IEnumerable<TileRenderStep> BuildChild(Character character, Dictionary<string, SpriteDef> sprites)
@@ -141,7 +144,7 @@ namespace PortraitBuilder.Engine
             tileIndex = default;
             if (!character.TryGetLetter(layer.Characteristic, out char letter))
             {
-                logger.LogWarning("Letter not found. character {0} layer {1} characteristic {2}", character, layer, layer.Characteristic);
+                logger.LogDebug("No value for layer {0} (characteristic {1}); properties string is shorter than this layer, so it is skipped", layer, layer.Characteristic);
                 return false;
             }
 
@@ -215,3 +218,4 @@ namespace PortraitBuilder.Engine
         }
     }
 }
+

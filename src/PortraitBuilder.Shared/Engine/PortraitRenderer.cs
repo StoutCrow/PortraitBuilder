@@ -13,6 +13,20 @@ namespace PortraitBuilder.Engine
     public static class PortraitRenderer
     {
         /// <summary>
+        /// Smooth upscale (Catmull-Rom). The game art is only 176x176 px, so this sharpens edges but cannot add detail.
+        /// Returns the source itself when factor is 1 or less.
+        /// </summary>
+        public static SKImage Upscale(SKImage source, int factor)
+        {
+            if (factor <= 1) return source;
+            using var src = SKBitmap.FromImage(source);
+            using var dst = new SKBitmap(new SKImageInfo(src.Width * factor, src.Height * factor, SKColorType.Bgra8888, SKAlphaType.Premul));
+            if (!src.ScalePixels(dst, new SKSamplingOptions(SKCubicResampler.CatmullRom)))
+                throw new InvalidOperationException("Failed to scale portrait");
+            return SKImage.FromBitmap(dst);
+        }
+
+        /// <summary>
         /// Draws a character portrait.
         /// </summary>
         public static SKBitmap DrawPortrait(IEnumerable<PortraitBuilder.TileRenderStep> steps)
@@ -61,7 +75,7 @@ namespace PortraitBuilder.Engine
                     break;
                 default:
                     output = new SKBitmap(source.Info.WithAlphaType(SKAlphaType.Unpremul));
-                    if (!source.ScalePixels(output, SKFilterQuality.High))
+                    if (!source.ScalePixels(output, new SKSamplingOptions(SKCubicResampler.Mitchell)))
                         throw new InvalidOperationException("failed to translate source eye tile");
                     break;
             }
@@ -100,7 +114,7 @@ namespace PortraitBuilder.Engine
                     break;
                 default:
                     output = new SKBitmap(source.Info.WithAlphaType(SKAlphaType.Unpremul));
-                    if (!source.ScalePixels(output, SKFilterQuality.High))
+                    if (!source.ScalePixels(output, new SKSamplingOptions(SKCubicResampler.Mitchell)))
                         throw new InvalidOperationException("failed to translate source hair tile");
                     break;
             }
@@ -127,3 +141,4 @@ namespace PortraitBuilder.Engine
         }
     }
 }
+

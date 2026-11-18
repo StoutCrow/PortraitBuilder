@@ -131,7 +131,7 @@ namespace PortraitBuilder.Parser
 
             if (!hasContent)
             {
-                logger.LogWarning($"File is empty: {filename}");
+                logger.LogDebug($"File is empty: {filename}"); // the game ships some empty .gfx files, e.g. mainmenu.gfx
                 return;
             }
 

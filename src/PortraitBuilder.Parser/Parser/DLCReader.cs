@@ -37,7 +37,7 @@ namespace PortraitBuilder.Parser
             {
                 // Note: path will be overriden when extracting the archive
                 // Remove "dlc/" from path
-                dlc.AbsolutePath = Path.Combine(folder, dlc.Archive.Substring("dlc/".Length));
+                dlc.AbsolutePath = Path.Combine(folder, Path.GetFileName(dlc.Archive));
                 yield return dlc;
             }
         }
@@ -80,3 +80,4 @@ namespace PortraitBuilder.Parser
         }
     }
 }
+
