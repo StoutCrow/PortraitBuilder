@@ -8,7 +8,7 @@ namespace PortraitBuilder.UI
     internal sealed class AboutDialog : Form
     {
         /// <summary>Set to the project page once there is one; the link is hidden while this is empty.</summary>
-        private const string RepoUrl = "";
+        private const string RepoUrl = "https://github.com/StoutCrow/PortraitBuilder";
 
         public AboutDialog(Font font, Color back, bool medieval)
         {
