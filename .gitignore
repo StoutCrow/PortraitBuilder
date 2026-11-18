@@ -177,3 +177,4 @@ saved.txt
 src/PortraitBuilder.WinForms/dlc/
 **/bin/Release/
 
+.local/
