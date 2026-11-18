@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using PortraitBuilder.Engine;
 using PortraitBuilder.Model;
 using PortraitBuilder.Model.Content;
@@ -64,9 +64,31 @@ namespace PortraitBuilder.UI
 
         private readonly ToolTip toolTip = new();
 
+        private ComboBox cbExportScale;
+        private static readonly int[] ExportScales = { 1, 2, 4, 8 };
+        private int ExportScale => ExportScales[Math.Max(0, cbExportScale.SelectedIndex)];
+
+        private CheckBox chkRandomType, chkRandomRank;
+        private Chip btnBack, btnForward;
+
+        /// <summary>Everything needed to redraw a portrait exactly: DNA/properties are only meaningful for their portrait type.</summary>
+        private readonly record struct HistoryEntry(string Dna, string Props, string Type, string Culture, int Rank, int Government);
+
+        /// <summary>Portraits seen so far, so Randomize can be undone.</summary>
+        private readonly List<HistoryEntry> history = new();
+        private int historyPos = -1;
+
+        /// <summary>While set, DrawPortrait is skipped; used so a multi-step change renders once at the end.</summary>
+        private bool suppressDraw;
+
         public PortraitBuilderForm()
         {
             InitializeComponent();
+            using (var iconStream = typeof(PortraitBuilderForm).Assembly.GetManifestResourceStream("app.ico"))
+                if (iconStream != null) Icon = new Icon(iconStream); // the window and taskbar icon; the exe icon comes from ApplicationIcon
+            AddFeatureControls();
+            ApplyModernStyle();
+            BuildLayout();
 
             foreach (var dna in DefaultCharacteristics.DNA)
             {
@@ -77,9 +99,168 @@ namespace PortraitBuilder.UI
                 RegisterDisplayCharacteristic(panelProperties, property);
             }
 
+            ShowDeferredSection();
+
             InitializeForm();
             LoadGame(false);
             started = true;
+            RestoreLast();
+            PushHistory("Starting portrait"); // the starting portrait is the first entry in the strip
+        }
+
+        /// <summary>
+        /// Flat buttons, one accent on the primary action, roomier panels. Colours come from the system theme so dark mode works.
+        /// </summary>
+        private void ApplyModernStyle()
+        {
+            void Walk(Control parent)
+            {
+                foreach (Control c in parent.Controls)
+                {
+                    if (c is Button b)
+                    {
+                        b.FlatStyle = FlatStyle.Flat;
+                        b.FlatAppearance.BorderColor = SystemColors.ControlDark;
+                        b.UseVisualStyleBackColor = false;
+                        b.BackColor = SystemColors.ControlLight;
+                        b.ForeColor = SystemColors.ControlText;
+                        b.Cursor = Cursors.Hand;
+                    }
+                    else if (c is FlowLayoutPanel p)
+                    {
+                        p.Padding = new Padding(6);
+                    }
+                    Walk(c);
+                }
+            }
+            Walk(this);
+            foreach (var primary in new[] { btnRandom })
+            {
+                primary.BackColor = Color.FromArgb(0, 95, 184);
+                primary.ForeColor = Color.White;
+                primary.FlatAppearance.BorderColor = primary.BackColor;
+            }
+            pbPortrait.SizeMode = PictureBoxSizeMode.Zoom;
+            foreach (var tabs in new[] { tabControl1, tabContent })
+            {
+                tabs.SizeMode = TabSizeMode.Fixed;
+                tabs.ItemSize = new Size(110, 26);
+            }
+            foreach (var panel in new[] { panelDNA, panelProperties, panelDLCs, panelMods })
+            {
+                panel.BorderStyle = BorderStyle.None;
+            }
+        }
+
+        /// <summary>
+        /// Controls added in code: randomize options, undo/redo, and a resizable layout.
+        /// </summary>
+        private void AddFeatureControls()
+        {
+            chkRandomType = new CheckBox { Text = "Random portrait type", Location = new Point(230, 24), AutoSize = true };
+            chkRandomRank = new CheckBox { Text = "Random rank and government", Location = new Point(230, 52), AutoSize = true };
+            groupBox1.Controls.Add(chkRandomType);
+            groupBox1.Controls.Add(chkRandomRank);
+
+            btnBack = new Chip { Text = "Undo", Size = new Size(72, 36) };
+            btnForward = new Chip { Text = "Redo", Size = new Size(72, 36) };
+            btnBack.Click += (s, e) => GoHistory(-1);
+            btnForward.Click += (s, e) => GoHistory(1);
+            groupBox2.Controls.Add(btnBack);
+            groupBox2.Controls.Add(btnForward);
+
+            cbExportScale = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(224, 512), Width = 130, Anchor = AnchorStyles.Bottom | AnchorStyles.Left };
+            cbExportScale.Items.AddRange(ExportScales.Select(s => $"Export {s}x ({176 * s} px)").ToArray());
+            cbExportScale.SelectedIndex = 2; // 4x
+            groupBox1.Controls.Add(cbExportScale);
+            toolTip.SetToolTip(cbExportScale, "Size of the saved PNG. The game art is 176 px, so larger sizes are smoothly resampled, not more detailed.");
+
+            // The "online" comparison image points at a local Azure Function that is not part of this app; hide it and give the real portrait the room.
+            pbPortraitOnline.Visible = false;
+            lnkLblRemotePortrait.Visible = false;
+            pbPortrait.Location = new Point(7, 90);
+            pbPortrait.Size = new Size(426, 255);
+            tbDNA.Size = new Size(426, 75);
+
+            // Resizable: the output panel takes extra width, all panels take extra height.
+            FormBorderStyle = FormBorderStyle.Sizable;
+            MaximizeBox = true;
+            MinimumSize = Size;
+            const AnchorStyles tl = AnchorStyles.Top | AnchorStyles.Left, tlb = tl | AnchorStyles.Bottom, all = tlb | AnchorStyles.Right, bl = AnchorStyles.Bottom | AnchorStyles.Left;
+            groupBox3.Anchor = tlb; groupBox2.Anchor = tlb; groupBox1.Anchor = all;
+            tabContent.Anchor = all; tabControl1.Anchor = all;
+            btnToogleAll.Anchor = bl; btnReload.Anchor = bl; btnImport.Anchor = bl; btnRandom.Anchor = bl; btnSave.Anchor = bl; btnCopy.Anchor = bl;
+        }
+
+        private readonly List<string> histLabels = new();
+        private readonly List<DateTime> histTimes = new();
+
+        private void PushHistory(string label = "Edited")
+        {
+            if (character?.DNA == null) return;
+            var state = new HistoryEntry(character.DNA, character.Properties,
+                cbPortraitTypes.SelectedItem?.ToString(), cbCulturePortraitTypes.SelectedItem?.ToString(),
+                cbRank.SelectedIndex, cbGovernment.SelectedIndex);
+            if (historyPos >= 0 && history[historyPos] == state) return;
+            // Pushing after going back drops the portraits that were "ahead".
+            for (int j = historyPos + 1; j < thumbs.Count; j++) thumbs[j].Dispose();
+            if (historyPos + 1 < thumbs.Count)
+            {
+                thumbs.RemoveRange(historyPos + 1, thumbs.Count - historyPos - 1);
+                histLabels.RemoveRange(historyPos + 1, histLabels.Count - historyPos - 1);
+                histTimes.RemoveRange(historyPos + 1, histTimes.Count - historyPos - 1);
+            }
+            history.RemoveRange(historyPos + 1, history.Count - historyPos - 1);
+            history.Add(state);
+            thumbs.Add(MakeThumb());
+            histLabels.Add(label);
+            histTimes.Add(DateTime.Now);
+            if (history.Count > 60) { history.RemoveAt(0); thumbs[0].Dispose(); thumbs.RemoveAt(0); histLabels.RemoveAt(0); histTimes.RemoveAt(0); }
+            historyPos = history.Count - 1;
+            RefreshHistoryStrip();
+            logger.LogDebug("History push #{n}: {type} {dna}", historyPos, state.Type, state.Dna);
+        }
+
+        private static void SelectByText(ComboBox cb, string text)
+        {
+            int index = text == null ? -1 : cb.Items.IndexOf(text);
+            if (index >= 0 && cb.SelectedIndex != index) cb.SelectedIndex = index; // fires OnChangePortraitType for the type boxes
+        }
+
+        private void GoHistory(int delta)
+        {
+            PushHistory(); // so going back from a fresh portrait can come forward again
+            int i = historyPos + delta;
+            if (i < 0 || i >= history.Count) return;
+            historyPos = i;
+            var h = history[i];
+            logger.LogDebug("History go {delta} -> #{i}/{count}: {type} {dna}", delta, i, history.Count, h.Type, h.Dna);
+
+            ApplyState(h);
+            RefreshHistoryStrip();
+        }
+
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            switch (keyData)
+            {
+                case Keys.Control | Keys.R:
+                case Keys.F5:
+                    OnClickRandomize(this, EventArgs.Empty); return true;
+                case Keys.Control | Keys.V:
+                    // Leave Ctrl+V alone while typing in a field; otherwise paste a dna/properties pair.
+                    if (ActiveControl is not (TextBoxBase or ComboBox) && TryPasteDna()) return true;
+                    break;
+                case Keys.F1: ShowShortcuts(); return true;
+                case Keys.Control | Keys.Z: GoHistory(-1); return true;
+                case Keys.Control | Keys.Y: GoHistory(1); return true;
+                case Keys.Control | Keys.S: OnClickSave(this, EventArgs.Empty); return true;
+                case Keys.Control | Keys.D: KeepCurrent(); return true;
+                case Keys.Control | Keys.Shift | Keys.C:
+                    if (pbPortrait.Image != null) Clipboard.SetImage(pbPortrait.Image);
+                    return true;
+            }
+            return base.ProcessCmdKey(ref msg, keyData);
         }
 
         private void InitializeForm()
@@ -116,7 +297,12 @@ namespace PortraitBuilder.UI
             toolTip.SetToolTip(this.btnToogleAll, "Check or uncheck checkboxes in active tab");
             toolTip.SetToolTip(this.btnReload, "Reload all data from folders");
             toolTip.SetToolTip(this.btnImport, "Import DNA and Properties strings");
-            toolTip.SetToolTip(this.btnRandom, "Choose random values for dna/properties that are checked");
+            toolTip.SetToolTip(this.btnRandom, "Choose random values for dna/properties that are checked (Ctrl+R or F5). Undo: Ctrl+Z, redo: Ctrl+Y.");
+            toolTip.SetToolTip(this.chkRandomType, "Randomize also picks a random portrait type (culture look)");
+            toolTip.SetToolTip(this.chkRandomRank, "Randomize also picks a random rank and government");
+            toolTip.SetToolTip(this.btnBack, "Previous portrait (Ctrl+Z)");
+            toolTip.SetToolTip(this.btnForward, "Next portrait (Ctrl+Y)");
+            toolTip.SetToolTip(this.btnSave, "Save the portrait as PNG (Ctrl+S). Ctrl+Shift+C copies the image.");
             toolTip.SetToolTip(this.btnSave, "Save portrait as a .png image");
             toolTip.SetToolTip(this.btnCopy, "Copy DNA & Properties to use for character history");
 
@@ -158,10 +344,21 @@ namespace PortraitBuilder.UI
             var dlcs = loader.LoadDLCs(gameDir, dlcDir, clean);
             panelDLCs.Controls.Clear();
 
-            foreach (var dlc in dlcs.Where(d => d.HasPortraitData))
+            foreach (var dlc in dlcs)
             {
-                RegisterContent(panelDLCs, dlc);
+                if (dlc.HasPortraitData)
+                {
+                    RegisterContent(panelDLCs, dlc);
+                }
+                else
+                {
+                    // List every installed DLC so the list matches the game folder; only portrait packs can be toggled.
+                    var row = new CheckBox { Text = dlc.Name, Width = 240, AutoCheck = false, AutoEllipsis = true, ForeColor = Color.Gray, Margin = new Padding(0) };
+                    toolTip.SetToolTip(row, $"{dlc.Name}: installed, but it has no portrait data");
+                    panelDLCs.Controls.Add(row);
+                }
             }
+            logger.LogInformation("{count} DLC(s) installed, {withPortraits} with portrait data", dlcs.Count, dlcs.Count(d => d.HasPortraitData));
         }
 
         private void RegisterContent(Control container, Content content)
@@ -169,7 +366,8 @@ namespace PortraitBuilder.UI
             CheckBox checkbox = new();
             checkbox.Text = content.Name;
             checkbox.AutoEllipsis = true;
-            checkbox.Width = 190; // Force overflow
+            checkbox.Width = 240; // Force overflow
+            toolTip.SetToolTip(checkbox, content.Name); // full name when the label is ellipsized
             checkbox.CheckedChanged += this.OnCheckContent;
             checkbox.Padding = new Padding(0);
             checkbox.Margin = new Padding(0);
@@ -198,34 +396,64 @@ namespace PortraitBuilder.UI
             }
         }
 
+        /// <summary>
+        /// One section per feature: a header (name, "3 of 12", reroll, include-in-randomize tick) over a grid of pictures.
+        /// The drop-down only holds the value; it is never shown, so there is nothing to open or step through.
+        /// </summary>
         private void RegisterDisplayCharacteristic(Control container, Characteristic characteristic)
         {
-            ComboBox combobox = new()
-            {
-                Width = 90,
-                Padding = new Padding(0),
-                Margin = new Padding(0)
-            };
+            ComboBox combobox = new() { DropDownStyle = ComboBoxStyle.DropDownList };
             combobox.SelectedValueChanged += this.OnChangeDisplayCharacteristic;
 
-            Label label = new()
+            // Face features (DNA) on the Face tab, the main look (hair, clothes...) on Look, everything else on Extras.
+            var feature = new FeatureRow { Ch = characteristic, Cb = combobox };
+            feature.Page = characteristic.Type == CharacteristicType.DNA ? 1 : (characteristic.Randomizable || characteristic.Custom) ? 2 : 4;
+            FlowLayoutPanel host = feature.Page == 1 ? panelDNA : feature.Page == 2 ? panelProperties : panelExtras;
+
+            var name = new Label
             {
-                Text = $"{characteristic}:",
-                Width = 90,
-                TextAlign = ContentAlignment.MiddleRight
+                Text = System.Text.RegularExpressions.Regex.Replace(characteristic.ToString(), @"\s*\([dp]\d+\)$", ""),
+                Tag = "heading", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Margin = new Padding(0)
+            };
+            toolTip.SetToolTip(name, characteristic.ToString());
+            feature.Value = new Label { Tag = "muted", AutoSize = true, Anchor = AnchorStyles.Right, Margin = new Padding(0, 0, Px(10), 0) };
+
+            feature.Dice = new Chip { Kind = ChipKind.Ghost, Text = "↻", Size = new Size(Px(34), Px(34)), Anchor = AnchorStyles.None, Margin = new Padding(0), TabStop = false, Font = new Font("Segoe UI Symbol", 13F) };
+            toolTip.SetToolTip(feature.Dice, "Pick a random value for this feature only");
+            feature.Dice.Click += (s, e) =>
+            {
+                if (combobox.Items.Count < 2) return;
+                int next;
+                do next = Random.Shared.Next(combobox.Items.Count); while (next == combobox.SelectedIndex);
+                Recorded($"{characteristic}: {next + 1}", () => combobox.SelectedIndex = next);
             };
 
-            CheckBox randomizable = new()
-            {
-                Width = 20,
-                Padding = new Padding(5, 0, 0, 0)
-            };
+            CheckBox randomizable = new() { AutoSize = true, Text = "", Anchor = AnchorStyles.None, Margin = new Padding(Px(8), 0, Px(6), 0) };
             randomizable.DataBindings.Add("Checked", characteristic, "Randomizable");
-            toolTip.SetToolTip(randomizable, "Use this DisplayCharacteristic when randomizing");
+            toolTip.SetToolTip(randomizable, "Include this feature when randomizing");
 
-            container.Controls.Add(label);
-            container.Controls.Add(combobox);
-            container.Controls.Add(randomizable);
+            feature.Strip = new TilePicker { TileWidth = feature.Page == 1 ? 64 : feature.Page == 4 ? 56 : 68, Margin = new Padding(0, 0, 0, Px(12)), Tag = characteristic };
+
+            var row = new HoverRow { Height = Px(38), Margin = new Padding(0, 0, 0, Px(2)), Tag = characteristic };
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            for (int c = 0; c < 3; c++) row.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            row.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            row.ColumnCount = 4;
+            row.Controls.Add(name, 0, 0);
+            row.Controls.Add(feature.Value, 1, 0);
+            row.Controls.Add(feature.Dice, 2, 0);
+            row.Controls.Add(randomizable, 3, 0);
+            feature.Row = row;
+
+            // Background is the longest section (25 tiles) and the least often changed, so it is shown last (see ShowDeferredSection).
+            // Only the place on screen changes; the dna and properties letters still follow the order the features were registered in.
+            if (characteristic == DefaultCharacteristics.BACKGROUND) deferredSection = (host, feature);
+            else AddSection(host, feature);
+
+            combobox.EnabledChanged += (s, e) => RefreshRowVisibility(feature);
+            combobox.SelectedIndexChanged += (s, e) => RefreshRowVisibility(feature);
+            featureRows[characteristic] = feature;
+            RefreshRowVisibility(feature);
 
             if (characteristic.Type == CharacteristicType.DNA)
             {
@@ -240,13 +468,42 @@ namespace PortraitBuilder.UI
                 propertiesComboBoxes.Add(characteristic, combobox);
             }
         }
+        private (FlowLayoutPanel Host, FeatureRow Section)? deferredSection;
+
+        private void AddSection(FlowLayoutPanel host, FeatureRow feature)
+        {
+            // Row and strip travel together in one box, so the page can never pair a header with another feature's tiles.
+            var box = new TableLayoutPanel { ColumnCount = 1, RowCount = 2, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Margin = new Padding(0), Padding = new Padding(0), Tag = feature.Ch };
+            box.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            box.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            box.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            box.Controls.Add(feature.Row, 0, 0);
+            box.Controls.Add(feature.Strip, 0, 1);
+            feature.Box = box;
+            host.Controls.Add(box);
+            host.SetFlowBreak(box, true);
+            feature.Box.Visible = feature.Row.Visible || feature.Strip.Visible;
+            FitRows(host);
+        }
+
+        private void ShowDeferredSection()
+        {
+            if (deferredSection is not { } d) return;
+            deferredSection = null;
+            AddSection(d.Host, d.Section);
+        }
 
         private void UnregisterCustomProperties()
         {
-            for (int i = 0; i <= customPropertiesComboBoxes.Count * 3 - 1; i++)
+            // Each custom feature added a row and a strip of tiles, both tagged with its characteristic.
+            foreach (var custom in customPropertiesComboBoxes.Keys)
             {
-                // Remove Label + ComboBox + CheckBox for each custom property
-                panelProperties.Controls.RemoveAt(panelProperties.Controls.Count - 1);
+                featureRows.Remove(custom);
+                foreach (Control c in panelProperties.Controls.Cast<Control>().Where(c => c.Tag == (object)custom).ToList())
+                {
+                    panelProperties.Controls.Remove(c);
+                    c.Dispose();
+                }
             }
             customPropertiesComboBoxes.Clear();
         }
@@ -300,17 +557,20 @@ namespace PortraitBuilder.UI
         /// </summary>
         private void DrawPortrait()
         {
+            if (suppressDraw) return;
             pbPortrait.Image?.Dispose();
 
             try
             {
                 var steps = PortraitBuilder.Engine.PortraitBuilder.BuildCharacter(character, loader.ActivePortraitData.Sprites)
                     .Where(step => step != null)
-                    .Select(step =>
-                    {
-                        step.Tile = loader.Cache.Get(step.Def)[step.TileIndex];
-                        return step;
-                    });
+                    .ToList();
+
+                // A new portrait type decodes ~40 sprite sheets on first use; the cache is thread-safe, so do them in parallel.
+                System.Threading.Tasks.Parallel.ForEach(steps, step =>
+                {
+                    step.Tile = loader.Cache.Get(step.Def)[step.TileIndex];
+                });
 
                 var rendered = PortraitRenderer.DrawPortrait(steps);
                 previewImage = SKImage.FromBitmap(rendered);
@@ -321,17 +581,11 @@ namespace PortraitBuilder.UI
                 return;
             }
 
-            pbPortrait.Image = Image.FromStream(previewImage.Encode().AsStream(true));
-
-            if (!this.Visible)
-            {
-                return;
-            }
-
-            var fullUrl = GetOnlinePortraitUrl();
-            logger.LogInformation("Rendering remote portrait: {fullUrl}", fullUrl);
-            lnkLblRemotePortrait.Text = fullUrl;
-            pbPortraitOnline.ImageLocation = fullUrl;
+            // Show a smooth 4x version; GDI+ would otherwise stretch the 176 px image with blurry bilinear scaling.
+            using var big = PortraitRenderer.Upscale(previewImage, 4);
+            pbPortrait.Image = Image.FromStream(big.Encode().AsStream(true));
+            if (!statusTimer.Enabled) label22.Text = DefaultNote;
+            SchedulePickers();
         }
 
         private string GetOnlinePortraitUrl()
@@ -463,7 +717,8 @@ namespace PortraitBuilder.UI
             }
             else
             {
-                logger.LogWarning("Could not find frame count for {portraitType} and {characteristic}, disabling dropdown.", portraitType, characteristic);
+                // Normal: this portrait type has no sprite for the slot, so the dropdown is just disabled.
+                logger.LogDebug("No frames for {portraitType} and {characteristic}, disabling dropdown.", portraitType, characteristic);
                 cb.Enabled = false;
             }
         }
@@ -502,6 +757,7 @@ namespace PortraitBuilder.UI
             foreach (var pair in cbs.Where(kvp => kvp.Value != null))
             {
                 FillComboBox(pair.Value, pair.Key);
+                if (featureRows.TryGetValue(pair.Key, out var section)) RefreshRowVisibility(section);
             }
         }
 
@@ -705,15 +961,7 @@ namespace PortraitBuilder.UI
         private void OnClickCopy(object sender, EventArgs e)
         {
             Clipboard.SetText(tbDNA.Text);
-        }
-
-        private void OnClickSave(object sender, EventArgs e)
-        {
-            string file = Snippets.SaveFileDialog("Save Image", "PNG|*.png", null);
-            if (string.IsNullOrEmpty(file)) return;
-
-            using var fs = File.Create(file);
-            previewImage.Encode().SaveTo(fs);
+            SetStatus("DNA copied. Ctrl+V pastes it back.");
         }
 
         private void OnClickImport(object sender, EventArgs e)
@@ -737,11 +985,30 @@ namespace PortraitBuilder.UI
 
         private void OnClickRandomize(object sender, EventArgs e)
         {
+            // A new portrait type loads and decodes its sprite sheets on first use (about a second), so show a busy cursor.
+            UseWaitCursor = true;
+            try { Randomize(); }
+            finally { UseWaitCursor = false; }
+        }
+
+        private void Randomize()
+        {
+            PushHistory("Before randomizing");
+
+            if (chkRandomType.Checked && cbPortraitTypes.Items.Count > 1)
+            {
+                // Fires OnChangePortraitType, which refills the dropdowns for the new type. Skip its redraw; we draw once below.
+                suppressDraw = true;
+                try { cbPortraitTypes.SelectedIndex = Random.Shared.Next(cbPortraitTypes.Items.Count); }
+                finally { suppressDraw = false; }
+            }
+
             started = false;
-            RandomizeDisplayCharacteristics(false);
+            RandomizeDisplayCharacteristics(chkRandomRank.Checked);
             started = true;
 
             DrawPortrait();
+            PushHistory("Randomized");
         }
 
         /// <summary>
@@ -838,3 +1105,6 @@ namespace PortraitBuilder.UI
         }
     }
 }
+
+
+

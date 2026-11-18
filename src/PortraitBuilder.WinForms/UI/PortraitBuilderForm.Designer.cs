@@ -30,8 +30,8 @@
             this.label24 = new System.Windows.Forms.Label();
             this.cbGovernment = new System.Windows.Forms.ComboBox();
             this.label22 = new System.Windows.Forms.Label();
-            this.btnSave = new System.Windows.Forms.Button();
-            this.btnCopy = new System.Windows.Forms.Button();
+            this.btnSave = new PortraitBuilder.UI.Chip();
+            this.btnCopy = new PortraitBuilder.UI.Chip();
             this.tbDNA = new System.Windows.Forms.TextBox();
             this.pbPortrait = new System.Windows.Forms.PictureBox();
             this.pbPortraitOnline = new System.Windows.Forms.PictureBox();
@@ -46,8 +46,8 @@
             this.cbCulturePortraitTypes = new System.Windows.Forms.ComboBox();
             this.label1 = new System.Windows.Forms.Label();
             this.label21 = new System.Windows.Forms.Label();
-            this.btnRandom = new System.Windows.Forms.Button();
-            this.btnImport = new System.Windows.Forms.Button();
+            this.btnRandom = new PortraitBuilder.UI.Chip();
+            this.btnImport = new PortraitBuilder.UI.Chip();
             this.cbPortraitTypes = new System.Windows.Forms.ComboBox();
             this.tabContent = new System.Windows.Forms.TabControl();
             this.tabDLCs = new System.Windows.Forms.TabPage();
@@ -55,8 +55,8 @@
             this.tabMods = new System.Windows.Forms.TabPage();
             this.panelMods = new System.Windows.Forms.FlowLayoutPanel();
             this.groupBox3 = new System.Windows.Forms.GroupBox();
-            this.btnToogleAll = new System.Windows.Forms.Button();
-            this.btnReload = new System.Windows.Forms.Button();
+            this.btnToogleAll = new PortraitBuilder.UI.Chip();
+            this.btnReload = new PortraitBuilder.UI.Chip();
             this.lnkLblRemotePortrait = new System.Windows.Forms.LinkLabel();
             this.groupBox1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pbPortrait)).BeginInit();
@@ -498,10 +498,10 @@
 		private System.Windows.Forms.ComboBox cbRank;
 		private System.Windows.Forms.Label label20;
 		private System.Windows.Forms.GroupBox groupBox2;
-		private System.Windows.Forms.Button btnSave;
-		private System.Windows.Forms.Button btnCopy;
-		private System.Windows.Forms.Button btnImport;
-		private System.Windows.Forms.Button btnRandom;
+		private PortraitBuilder.UI.Chip btnSave;
+		private PortraitBuilder.UI.Chip btnCopy;
+		private PortraitBuilder.UI.Chip btnImport;
+		private PortraitBuilder.UI.Chip btnRandom;
 		private System.Windows.Forms.ComboBox cbPortraitTypes;
 		private System.Windows.Forms.TabControl tabContent;
 		private System.Windows.Forms.TabPage tabMods;
@@ -511,8 +511,8 @@
 		private System.Windows.Forms.FlowLayoutPanel panelMods;
 		private System.Windows.Forms.Label label22;
 		private System.Windows.Forms.GroupBox groupBox3;
-		private System.Windows.Forms.Button btnToogleAll;
-		private System.Windows.Forms.Button btnReload;
+		private PortraitBuilder.UI.Chip btnToogleAll;
+		private PortraitBuilder.UI.Chip btnReload;
 		private System.Windows.Forms.Label label24;
 		private System.Windows.Forms.ComboBox cbGovernment;
 		private System.Windows.Forms.TabPage tabDNA;
@@ -523,4 +523,5 @@
         private System.Windows.Forms.LinkLabel lnkLblRemotePortrait;
     }
 }
+
 
